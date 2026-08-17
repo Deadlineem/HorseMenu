@@ -47,6 +47,9 @@ namespace YimMenu
 		// scale
 		void SetScale(float scale);
 
+		// money
+		void SetPedMoney(int amount);
+
 		//quality
 		void SetQuality(int quality);
 

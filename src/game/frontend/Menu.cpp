@@ -106,7 +106,7 @@ namespace YimMenu
 		style.Colors[ImGuiCol_PlotHistogram] = ImVec4(0.90f, 0.70f, 0.20f, 1.00f);
 		style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.80f, 0.40f, 1.00f);
 
-		style.GrabRounding = style.FrameRounding = style.ChildRounding = style.WindowRounding = 8.0f; g
+		style.GrabRounding = style.FrameRounding = style.ChildRounding = style.WindowRounding = 8.0f;
 	}
 
 	void Menu::SetupFonts()

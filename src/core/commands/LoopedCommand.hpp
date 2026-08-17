@@ -1,5 +1,6 @@
 #pragma once
 #include "BoolCommand.hpp"
+#include "game/rdr/Player.hpp"
 
 namespace YimMenu
 {

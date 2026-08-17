@@ -4,6 +4,7 @@
 #include "World/Shows.hpp"
 #include "World/Train.hpp"
 #include "World/VehicleSpawner.hpp"
+#include "World/ObjectSpawner.hpp"
 #include "World/Weather.hpp"
 #include "core/commands/Commands.hpp"
 #include "core/commands/HotkeySystem.hpp"
@@ -110,6 +111,7 @@ namespace YimMenu::Submenus
 		auto spawners            = std::make_shared<Category>("Spawners");
 		auto pedSpawnerGroup     = std::make_shared<Group>("Ped Spawner");
 		auto vehicleSpawnerGroup = std::make_shared<Group>("Vehicle Spawner");
+		auto objectSpawnerGroup = std::make_shared<Group>("Object Spawner");
 		auto trainSpawnerGroup   = std::make_shared<Group>("Train Spawner");
 
 		pedSpawnerGroup->AddItem(std::make_shared<ImGuiItem>([] {
@@ -120,12 +122,17 @@ namespace YimMenu::Submenus
 			RenderVehicleSpawnerMenu();
 		}));
 
+		objectSpawnerGroup->AddItem(std::make_shared<ImGuiItem>([] {
+			RenderObjectSpawnerMenu();
+		}));
+
 		trainSpawnerGroup->AddItem(std::make_shared<ImGuiItem>([] {
 			RenderTrainsMenu();
 		}));
 
 		spawners->AddItem(pedSpawnerGroup);
 		spawners->AddItem(vehicleSpawnerGroup);
+		spawners->AddItem(objectSpawnerGroup);
 		spawners->AddItem(trainSpawnerGroup);
 
 		auto poolCounter = std::make_shared<ImGuiItem>([] {

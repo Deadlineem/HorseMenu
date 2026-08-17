@@ -107,6 +107,7 @@ namespace YimMenu::Submenus
 		teleportGroup->AddItem(std::make_shared<CommandItem>("bringall"_J, "Bring All"));
 		teleportGroup->AddItem(std::make_shared<CommandItem>("tpalltowaypoint"_J));
 		teleportGroup->AddItem(std::make_shared<CommandItem>("tpalltojail"_J));
+		teleportGroup->AddItem(std::make_shared<CommandItem>("tpalltoocean"_J));
 
 		toxicGroup->AddItem(std::make_shared<CommandItem>("explodeall"_J));
 		toxicGroup->AddItem(std::make_shared<CommandItem>("maxhonorall"_J));

@@ -4,6 +4,7 @@
 #include "game/rdr/Scripts.hpp"
 #include <event/CEventGroup.hpp>
 #include <event/CEventInventoryItemPickedUp.hpp>
+#include "game/backend/Self.hpp"
 
 namespace YimMenu::Rewards
 {

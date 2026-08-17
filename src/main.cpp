@@ -15,7 +15,7 @@
 #include "game/features/Features.hpp"
 #include "game/frontend/GUI.hpp"
 #include "game/pointers/Pointers.hpp"
-
+#include "game/backend/DataExtractor.hpp"
 
 namespace YimMenu
 {
@@ -25,6 +25,8 @@ namespace YimMenu
 		FileMgr::Init(documents);
 
 		LogHelper::Init("Terminus", FileMgr::GetProjectFile("./cout.log"));
+
+		Data::DownloadModelsJson();
 
 		g_HotkeySystem.RegisterCommands();
 		SavedLocations::FetchSavedLocations();

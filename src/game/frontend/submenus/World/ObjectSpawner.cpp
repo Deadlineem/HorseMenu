@@ -1,50 +1,49 @@
-#include "VehicleSpawner.hpp"
+﻿#include "ObjectSpawner.hpp"
 
 #include "core/commands/LoopedCommand.hpp"
 #include "game/backend/FiberPool.hpp"
 #include "game/backend/ScriptMgr.hpp"
-#include "game/features/Features.hpp"
-#include "game/frontend/items/Items.hpp"
-#include "game/rdr/data/VehicleModels.hpp"
 #include "game/backend/Self.hpp"
-#include "game/rdr/Vehicle.hpp"
+#include "game/frontend/items/Items.hpp"
+#include "game/rdr/Object.hpp"
+#include "game/rdr/data/ObjectModels.hpp"
 #include "game/rdr/Natives.hpp"
-
+#include "game/rdr/data/VehicleModels.hpp"
 
 namespace YimMenu::Submenus
 {
 	static rage::fvector3 GetForwardOffset(float headingDegrees, float distance)
 	{
 		float heading = headingDegrees * 3.14159265f / 180.0f;
-
 		return rage::fvector3(-std::sin(heading) * distance, std::cos(heading) * distance, 0.0f);
 	}
 
-	static bool IsVehModelInList(std::string model)
+	static bool IsObjectModelInList(const std::string& model)
 	{
-		for (const auto& vehModel : Data::g_VehicleModels)
+		for (const auto& objModel : Data::GetObjectModels())
 		{
-			if (vehModel.model == model)
+			if (objModel.model == model)
 				return true;
 		}
-
 		return false;
 	}
 
-	static int VehSpawnerInputCallback(ImGuiInputTextCallbackData* data)
+	static int ObjSpawnerInputCallback(ImGuiInputTextCallbackData* data)
 	{
 		if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion)
 		{
 			std::string newText{};
 			std::string inputLower = data->Buf;
 			std::transform(inputLower.begin(), inputLower.end(), inputLower.begin(), ::tolower);
-			for (const auto& vehModel : Data::g_VehicleModels)
+
+			for (const auto& objModel : Data::GetObjectModels())
 			{
-				std::string modelLower = vehModel.model;
+				std::string modelLower = objModel.model;
 				std::transform(modelLower.begin(), modelLower.end(), modelLower.begin(), ::tolower);
+
 				if (modelLower.find(inputLower) != std::string::npos)
 				{
-					newText = vehModel.model;
+					newText = objModel.model;
 				}
 			}
 
@@ -59,27 +58,33 @@ namespace YimMenu::Submenus
 		return 0;
 	}
 
-	void RenderVehicleSpawnerMenu()
+	void RenderObjectSpawnerMenu()
 	{
-		ImGui::PushID("vehicles"_J);
-		static std::string vehModelBuffer;
-		InputTextWithHint("##vehmodel", "Vehicle Model", &vehModelBuffer, ImGuiInputTextFlags_CallbackCompletion, nullptr, VehSpawnerInputCallback)
+		ImGui::PushID("objects"_J);
+
+		static std::string objModelBuffer;
+
+		InputTextWithHint("##objmodel", "Object Model", &objModelBuffer, ImGuiInputTextFlags_CallbackCompletion, nullptr, ObjSpawnerInputCallback)
 		    .Draw();
+
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Press Tab to auto fill");
-		if (!vehModelBuffer.empty() && !IsVehModelInList(vehModelBuffer))
-		{
-			ImGui::BeginListBox("##vehmodels", ImVec2(250, 100));
 
-			std::string bufferLower = vehModelBuffer;
+		if (!objModelBuffer.empty() && !IsObjectModelInList(objModelBuffer))
+		{
+			ImGui::BeginListBox("##objmodels", ImVec2(250, 100));
+
+			std::string bufferLower = objModelBuffer;
 			std::transform(bufferLower.begin(), bufferLower.end(), bufferLower.begin(), ::tolower);
-			for (const auto& vehModel : Data::g_VehicleModels)
+
+			for (const auto& objModel : Data::GetObjectModels())
 			{
-				std::string vehModelLower = vehModel.model;
-				std::transform(vehModelLower.begin(), vehModelLower.end(), vehModelLower.begin(), ::tolower);
-				if (vehModelLower.find(bufferLower) != std::string::npos && ImGui::Selectable(vehModel.model.data()))
+				std::string modelLower = objModel.model;
+				std::transform(modelLower.begin(), modelLower.end(), modelLower.begin(), ::tolower);
+
+				if (modelLower.find(bufferLower) != std::string::npos && ImGui::Selectable(objModel.model.c_str()))
 				{
-					vehModelBuffer = vehModel.model;
+					objModelBuffer = objModel.model;
 				}
 			}
 
@@ -93,11 +98,11 @@ namespace YimMenu::Submenus
 				auto coords = ped.GetPosition();
 				float heading = ped.GetRotation().z;
 
-				auto forward = GetForwardOffset(heading, 6.0f); // spawn 6 units in front
+				auto forward = GetForwardOffset(heading, 3.0f);
 				auto newPos = coords + forward;
 
-				Vehicle::Create(Joaat(vehModelBuffer), newPos, heading);
-			});
+				Object::Create(Joaat(objModelBuffer), newPos);
+		});
 		}
 		ImGui::PopID();
 	}

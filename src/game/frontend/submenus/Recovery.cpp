@@ -75,6 +75,22 @@ namespace YimMenu::Submenus
 						Rewards::GiveRequestedRewards({selected});
 					});
 				}
+				ImGui::SameLine();
+
+				static bool loopReward = false;
+				static float rewardTimer = 0.0f;
+				static const float rewardInterval = 0.2f; // seconds
+
+				ImGui::Checkbox("Loop Selected", &loopReward);
+
+				rewardTimer += ImGui::GetIO().DeltaTime;
+				if (loopReward && rewardTimer >= rewardInterval)
+				{
+					rewardTimer = 0.0f;
+					FiberPool::Push([] {
+						Rewards::GiveRequestedRewards({selected});
+					});
+				}
 			}
 			else
 			{

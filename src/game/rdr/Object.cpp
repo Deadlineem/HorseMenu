@@ -30,7 +30,7 @@ namespace YimMenu
 		}
 
 		auto obj = Object(OBJECT::CREATE_OBJECT(model, coords.x, coords.y, coords.z, true, false, true, false, true));
-
+		OBJECT::PLACE_OBJECT_ON_GROUND_PROPERLY(obj.GetHandle(), 0);
 		if (!obj)
 		{
 #ifdef ENTITY_DEBUG
