@@ -10,7 +10,7 @@
 
 namespace YimMenu::Data
 {
-	const char* MODELS_URL = "https://kaos.bot.nu/models.json";
+	const char* MODELS_URL = "https://raw.githubusercontent.com/Deadlineem/HorseMenu/refs/heads/master/src/game/rdr/data/models.json";
 
 	std::string GetAppDataPath()
 	{

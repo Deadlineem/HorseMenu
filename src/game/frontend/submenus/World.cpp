@@ -53,6 +53,7 @@ namespace YimMenu::Submenus
 		auto weather = std::make_shared<Category>("Weather");
 		auto shows   = std::make_shared<Category>("Shows");
 		auto time    = std::make_shared<Category>("Time");
+		auto map	 = std::make_shared<Category>("Map");
 
 
 		time->AddItem(std::make_shared<ImGuiItem>([] {
@@ -189,12 +190,14 @@ namespace YimMenu::Submenus
 			RenderShowsMenu();
 		}));
 
+		map->AddItem(std::make_shared<BoolCommandItem>("removefow"_J));
 
 		AddCategory(std::move(main));
 		AddCategory(std::move(weather));
 		AddCategory(std::move(spawners));
 		AddCategory(std::move(shows));
 		AddCategory(std::move(time));
+		AddCategory(std::move(map));
 	}
 
 }

@@ -3,6 +3,8 @@
 #include "core/commands/BoolCommand.hpp"
 #include "core/commands/Commands.hpp"
 #include "game/backend/FiberPool.hpp"
+#include "game/backend/Self.hpp"
+#include "game/features/Features.hpp"
 #include "game/frontend/items/Items.hpp"
 #include "game/rdr/ScriptFunction.hpp"
 #include "game/rdr/Scripts.hpp"
@@ -17,7 +19,8 @@ namespace YimMenu::Submenus
 		auto recovery               = std::make_shared<Category>("Recovery");
 		auto spawnCollectiblesGroup = std::make_shared<Group>("Spawn Collectibles");
 		auto spawnHerbsGroup		= std::make_shared<Group>("Spawn Herbs");
-		auto recoveryOptions        = std::make_shared<Group>("Options");
+		auto recoveryOptions = std::make_shared<Group>("Options");
+		auto storyRecoveryOptions = std::make_shared<Group>("Story Mode Options");
 
 		static auto recoveryCommand = Commands::GetCommand<BoolCommand>("recoveryenabled"_J);
 
@@ -134,10 +137,17 @@ namespace YimMenu::Submenus
 				}
 			}
 		}));
-		recoveryOptions->AddItem(std::make_shared<BoolCommandItem>("unlimiteditems"_J));
+
+		recoveryOptions->AddItem(std::make_shared<BoolCommandItem>("unlimiteditems"_J)); // TODO
+
+		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("givestorycash"_J));
+		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("giveallweapons"_J));
+		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("giveallitems"_J));
+		
 		recovery->AddItem(spawnCollectiblesGroup);
 		recovery->AddItem(spawnHerbsGroup);
 		recovery->AddItem(recoveryOptions);
+		recovery->AddItem(storyRecoveryOptions);
 
 		AddCategory(std::move(recovery));
 	}
