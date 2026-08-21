@@ -17,6 +17,7 @@ namespace YimMenu::Submenus
 	    Submenu::Submenu("Recovery")
 	{
 		auto recovery               = std::make_shared<Category>("Recovery");
+		auto storyMode				= std::make_shared<Category>("Story");
 		auto spawnCollectiblesGroup = std::make_shared<Group>("Spawn Collectibles");
 		auto spawnHerbsGroup		= std::make_shared<Group>("Spawn Herbs");
 		auto recoveryOptions = std::make_shared<Group>("Options");
@@ -143,12 +144,16 @@ namespace YimMenu::Submenus
 		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("givestorycash"_J));
 		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("giveallweapons"_J));
 		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("giveallitems"_J));
+		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("maxsphonor"_J));
+		storyRecoveryOptions->AddItem(std::make_shared<CommandItem>("minsphonor"_J));
 		
 		recovery->AddItem(spawnCollectiblesGroup);
 		recovery->AddItem(spawnHerbsGroup);
 		recovery->AddItem(recoveryOptions);
-		recovery->AddItem(storyRecoveryOptions);
+
+		storyMode->AddItem(storyRecoveryOptions);
 
 		AddCategory(std::move(recovery));
+		AddCategory(std::move(storyMode));
 	}
 }

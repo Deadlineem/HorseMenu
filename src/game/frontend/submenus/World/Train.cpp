@@ -66,6 +66,7 @@ namespace YimMenu::Submenus
 					 VEHICLE::SET_TRAIN_SPEED(veh.GetHandle(), 1000.0f);
 					 VEHICLE::SET_TRAIN_CRUISE_SPEED(veh.GetHandle(), 1000.0f);
 					 VEHICLE::_SET_TRAIN_MAX_SPEED(veh.GetHandle(), 1000.0f);
+					 VEHICLE::MODIFY_VEHICLE_TOP_SPEED(veh.GetHandle(), 1000.0f);
 				 }
 			 }
 		}
@@ -92,6 +93,7 @@ namespace YimMenu::Submenus
 					VEHICLE::SET_TRAIN_SPEED(veh.GetHandle(), 0.0f);
 					VEHICLE::SET_TRAIN_CRUISE_SPEED(veh.GetHandle(), 0.0f);
 					VEHICLE::_SET_TRAIN_MAX_SPEED(veh.GetHandle(), 0.0f);
+					VEHICLE::MODIFY_VEHICLE_TOP_SPEED(veh.GetHandle(), 0.0f);
 				}
 			}
 		}
