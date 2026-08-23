@@ -41,8 +41,37 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install CMake 3.29
+        run: |
+          # Download and install CMake 3.29.6
+          $url = "https://github.com/Kitware/CMake/releases/download/v3.29.6/cmake-3.29.6-windows-x86_64.zip"
+          $output = "$env:TEMP\cmake.zip"
+          $extractPath = "$env:TEMP\cmake"
+          
+          Write-Host "Downloading CMake 3.29.6..."
+          Invoke-WebRequest -Uri $url -OutFile $output
+          
+          Write-Host "Extracting CMake..."
+          Expand-Archive -Path $output -DestinationPath $extractPath -Force
+          
+          # Add CMake to PATH for this session
+          $cmakePath = "$extractPath\cmake-3.29.6-windows-x86_64\bin"
+          $env:Path = "$cmakePath;$env:Path"
+          
+          # Also set it for subsequent steps
+          echo "CMAKE_PATH=$cmakePath" >> $env:GITHUB_ENV
+          
+          Write-Host "CMake installed successfully!"
+        shell: powershell
+
       - name: Check CMake version
-        run: cmake --version
+        run: |
+          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
+            & "$env:CMAKE_PATH\cmake.exe" --version
+          } else {
+            cmake --version
+          }
+        shell: powershell
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -50,10 +79,22 @@ jobs:
           arch: amd64
 
       - name: Generate CMake project
-        run: cmake -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -S. -Bbuild -G Ninja
+        run: |
+          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
+            & "$env:CMAKE_PATH\cmake.exe" -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -S. -Bbuild -G Ninja
+          } else {
+            cmake -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -S. -Bbuild -G Ninja
+          }
+        shell: powershell
 
       - name: Build 64bit release DLL
-        run: cmake --build ./build --config RelWithDebInfo --target Terminus --
+        run: |
+          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
+            & "$env:CMAKE_PATH\cmake.exe" --build ./build --config RelWithDebInfo --target Terminus --
+          } else {
+            cmake --build ./build --config RelWithDebInfo --target Terminus --
+          }
+        shell: powershell
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -68,6 +109,7 @@ jobs:
         run: |
           echo "full_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
           echo "short_sha=$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
+        shell: powershell
 
   recreate_release:
     runs-on: ubuntu-latest
