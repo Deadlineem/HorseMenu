@@ -1,14 +1,16 @@
 #include "Train.hpp"
-
+#include "core/commands/LoopedCommand.hpp"
 #include "game/backend/FiberPool.hpp"
 #include "game/backend/Self.hpp"
 #include "game/rdr/Natives.hpp"
 #include "game/rdr/data/Trains.hpp"
 #include "util/Joaat.hpp"
 #include "util/teleport.hpp"
+#include "game/backend/ScriptMgr.hpp"
 
 namespace YimMenu::Submenus
 {
+	auto fastTrain = false;
 	void RenderTrainsMenu()
 	{
 		static uint32_t selectedTrain = 0;
@@ -43,60 +45,6 @@ namespace YimMenu::Submenus
 		ImGui::SameLine();
 
 		ImGui::Checkbox("Station Stops", &stopsForStations);
-
-		ImGui::Separator();
-
-		ImGui::Checkbox("Fast Trains", &fastTrain);
-		if (fastTrain)
-		{
-			Any nearbyVehs[11] = {};
-			nearbyVehs[0] = 5; // max vehicles to return
-
-			int count = PED::GET_PED_NEARBY_VEHICLES(Self::GetPed().GetHandle(), nearbyVehs);
-
-			for (int i = 0; i < count; ++i)
-			{
-				Vehicle veh = nearbyVehs[i + 1];
-				if (!veh)
-					continue;
-
-				Hash model = ENTITY::GET_ENTITY_MODEL(veh.GetHandle());
-				if (VEHICLE::IS_THIS_MODEL_A_TRAIN(model))
-				{
-					 VEHICLE::SET_TRAIN_SPEED(veh.GetHandle(), 1000.0f);
-					 VEHICLE::SET_TRAIN_CRUISE_SPEED(veh.GetHandle(), 1000.0f);
-					 VEHICLE::_SET_TRAIN_MAX_SPEED(veh.GetHandle(), 1000.0f);
-					 VEHICLE::MODIFY_VEHICLE_TOP_SPEED(veh.GetHandle(), 1000.0f);
-				 }
-			 }
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Stop Trains"))
-		{
-			Any nearbyVehs[21] = {};
-			nearbyVehs[0] = 5; // max vehicles to return
-
-			int count = PED::GET_PED_NEARBY_VEHICLES(Self::GetPed().GetHandle(), nearbyVehs);
-
-			for (int i = 0; i < count; ++i)
-			{
-				Vehicle veh = (Vehicle)nearbyVehs[i + 1];
-				if (!veh)
-					continue;
-
-				Hash model = ENTITY::GET_ENTITY_MODEL(veh.GetHandle());
-
-				if (VEHICLE::IS_THIS_MODEL_A_TRAIN(model))
-				{
-					fastTrain = false;
-					// Stop train properly
-					VEHICLE::SET_TRAIN_SPEED(veh.GetHandle(), 0.0f);
-					VEHICLE::SET_TRAIN_CRUISE_SPEED(veh.GetHandle(), 0.0f);
-					VEHICLE::_SET_TRAIN_MAX_SPEED(veh.GetHandle(), 0.0f);
-					VEHICLE::MODIFY_VEHICLE_TOP_SPEED(veh.GetHandle(), 0.0f);
-				}
-			}
-		}
 
 		ImGui::Separator();
 
@@ -138,6 +86,33 @@ namespace YimMenu::Submenus
 						Teleport::WarpIntoVehicle(Self::GetPed().GetHandle(), veh);
 					}
 				});
+			}
+		}
+
+		ImGui::Separator();
+
+		if (ImGui::Button("Stop Trains"))
+		{
+			Any nearbyVehs[21] = {};
+			nearbyVehs[0] = 5; // max vehicles to return
+
+			int count = PED::GET_PED_NEARBY_VEHICLES(Self::GetPed().GetHandle(), nearbyVehs);
+
+			for (int i = 0; i < count; ++i)
+			{
+				Vehicle veh = (Vehicle)nearbyVehs[i + 1];
+				if (!veh)
+					continue;
+
+				Hash model = ENTITY::GET_ENTITY_MODEL(veh.GetHandle());
+
+				if (VEHICLE::IS_THIS_MODEL_A_TRAIN(model))
+				{
+					VEHICLE::SET_TRAIN_SPEED(veh.GetHandle(), 0.0f);
+					VEHICLE::SET_TRAIN_CRUISE_SPEED(veh.GetHandle(), 0.0f);
+					VEHICLE::_SET_TRAIN_MAX_SPEED(veh.GetHandle(), 0.0f);
+					VEHICLE::MODIFY_VEHICLE_TOP_SPEED(veh.GetHandle(), 0.0f);
+				}
 			}
 		}
 

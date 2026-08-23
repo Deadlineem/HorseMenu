@@ -3,6 +3,7 @@
 #include "World/PedSpawner.hpp"
 #include "World/Shows.hpp"
 #include "World/Train.hpp"
+#include "World/TrainSpeed.cpp"
 #include "World/VehicleSpawner.hpp"
 #include "World/ObjectSpawner.hpp"
 #include "World/Weather.hpp"
@@ -15,6 +16,7 @@
 #include "game/frontend/items/Items.hpp"
 #include "game/rdr/Natives.hpp"
 #include "game/rdr/Pools.hpp"
+#include "core/commands/BoolCommand.hpp"
 
 #include <game/rdr/Natives.hpp>
 #include <rage/fwBasePool.hpp>
@@ -135,6 +137,8 @@ namespace YimMenu::Submenus
 		spawners->AddItem(vehicleSpawnerGroup);
 		spawners->AddItem(objectSpawnerGroup);
 		spawners->AddItem(trainSpawnerGroup);
+
+		trainSpawnerGroup->AddItem(std::make_shared<BoolCommandItem>("fasttrain"_J));
 
 		auto poolCounter = std::make_shared<ImGuiItem>([] {
 			if (GetPedPool())
