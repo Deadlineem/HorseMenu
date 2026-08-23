@@ -182,3 +182,21 @@ jobs:
             [Link to build](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
             Build SHA256:
+            ${{ steps.build_sha.outputs.build_sha }}
+
+            To verify the build SHA256 during the action, click the build link, go-to "Create Release", open the Echo build sha256 step and read the sha256.
+
+            You can download the build artifacts, generate a SHA256 checksum and compare it with the below binary.
+            Build artifacts ARE NOT automatically the same as release assets since release assets can be modified afterwards.
+            
+            These are nightly builds of Terminus, they are provided for testing purposes only:
+            - Test if your build environment produces a broken Terminus.dll
+            - Test if source code is out of date and no longer compatible with the current version of Red Dead Redemption 2
+            
+            If you wish to use this menu as-is you are on your own, no warranty is provided.
+            
+            Full Commit Hash:
+            ${{ needs.build_nightly.outputs.full_sha }}
+
+            files: |
+            Terminus.dll
