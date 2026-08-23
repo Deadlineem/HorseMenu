@@ -198,5 +198,5 @@ jobs:
             Full Commit Hash:
             ${{ needs.build_nightly.outputs.full_sha }}
 
-            files: |
-            Terminus.dll
+          files: |
+           Terminus.dll
