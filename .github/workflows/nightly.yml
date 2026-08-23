@@ -1,100 +1,392 @@
 name: Nightly Build
 
 on:
+  # Build immediately whenever a commit is pushed.
+  push:
+
+  # Also build every 12 hours, even if there were no commits.
   schedule:
-    # cronjob that triggers every day at 2PM UTC
-    - cron: "0 14 * * *"
+    - cron: "0 0,12 * * *"
+
   workflow_dispatch:
 
 concurrency:
   group: nightly
   cancel-in-progress: true
 
-jobs:
-  check_recent_commit:
-    runs-on: ubuntu-latest
-    name: Check Recent Commit
-    outputs:
-      should_run: ${{ steps.should_run.outputs.should_run }}
-    steps:
-      - uses: actions/checkout@v4
+permissions:
+  contents: write
 
-      - id: should_run
-        name: Check if latest commit date is within the previous 24 hours
-        run: |
-          if [ -z "$(git rev-list --since="24 hours ago" --all)" ]; then
-            echo "should_run=false" >> $GITHUB_OUTPUT
-          else
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          fi
+jobs:
+
+  # ================================================================
+  # BUILD
+  # ================================================================
 
   build_nightly:
     runs-on: [self-hosted, Windows]
     name: Build Nightly
-    needs: check_recent_commit
-    if: needs.check_recent_commit.outputs.should_run == 'true'
+
     outputs:
       full_sha: ${{ steps.var.outputs.full_sha }}
       short_sha: ${{ steps.var.outputs.short_sha }}
+
     steps:
-      - uses: actions/checkout@v4
+
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
+
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
-      - name: Install CMake 3.29
-        run: |
-          # Download and install CMake 3.29.6
-          $url = "https://github.com/Kitware/CMake/releases/download/v3.29.6/cmake-3.29.6-windows-x86_64.zip"
-          $output = "$env:TEMP\cmake.zip"
-          $extractPath = "$env:TEMP\cmake"
-          
-          Write-Host "Downloading CMake 3.29.6..."
-          Invoke-WebRequest -Uri $url -OutFile $output
-          
-          Write-Host "Extracting CMake..."
-          Expand-Archive -Path $output -DestinationPath $extractPath -Force
-          
-          # Add CMake to PATH for this session
-          $cmakePath = "$extractPath\cmake-3.29.6-windows-x86_64\bin"
-          $env:Path = "$cmakePath;$env:Path"
-          
-          # Also set it for subsequent steps
-          echo "CMAKE_PATH=$cmakePath" >> $env:GITHUB_ENV
-          
-          Write-Host "CMake installed successfully!"
-        shell: powershell
+      # ------------------------------------------------------------
+      # CMake
+      # ------------------------------------------------------------
 
       - name: Check CMake version
-        run: |
-          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
-            & "$env:CMAKE_PATH\cmake.exe" --version
-          } else {
-            cmake --version
-          }
+        id: check_cmake
         shell: powershell
+        run: |
+          $requiredVersion = "3.29.6"
+
+          Write-Host "Checking installed CMake..."
+
+          $cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
+
+          if ($null -eq $cmakeCommand) {
+            Write-Host "CMake was not found."
+            "needs_install=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          Write-Host "CMake executable:"
+          Write-Host $cmakeCommand.Source
+
+          $versionOutput = & cmake --version 2>&1
+
+          Write-Host ""
+          Write-Host $versionOutput
+
+          $versionLine = $versionOutput |
+            Select-String -Pattern "cmake version ([0-9]+\.[0-9]+\.[0-9]+)" |
+            Select-Object -First 1
+
+          if ($null -eq $versionLine) {
+            Write-Host "Unable to determine installed CMake version."
+            "needs_install=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $installedVersion = $versionLine.Matches[0].Groups[1].Value
+
+          Write-Host ""
+          Write-Host "Installed CMake: $installedVersion"
+          Write-Host "Required CMake:  $requiredVersion"
+
+          if ($installedVersion -eq $requiredVersion) {
+            Write-Host ""
+            Write-Host "Correct CMake version is already installed."
+            Write-Host "Skipping CMake installation."
+
+            "needs_install=false" >> $env:GITHUB_OUTPUT
+          }
+          else {
+            Write-Host ""
+            Write-Host "Incorrect CMake version detected."
+            Write-Host "CMake 3.29.6 will be installed."
+
+            "needs_install=true" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Install CMake 3.29.6
+        if: steps.check_cmake.outputs.needs_install == 'true'
+        shell: powershell
+        run: |
+          $version = "3.29.6"
+          $url = "https://github.com/Kitware/CMake/releases/download/v$version/cmake-$version-windows-x86_64.zip"
+
+          $output = "$env:TEMP\cmake-$version.zip"
+          $extractPath = "$env:TEMP\cmake-$version"
+
+          Write-Host "Downloading CMake $version..."
+          Write-Host $url
+
+          Invoke-WebRequest `
+            -Uri $url `
+            -OutFile $output
+
+          if (!(Test-Path $output)) {
+            throw "CMake download failed."
+          }
+
+          Write-Host "Extracting CMake..."
+
+          if (Test-Path $extractPath) {
+            Remove-Item `
+              -Path $extractPath `
+              -Recurse `
+              -Force
+          }
+
+          Expand-Archive `
+            -Path $output `
+            -DestinationPath $extractPath `
+            -Force
+
+          $cmakePath = "$extractPath\cmake-$version-windows-x86_64\bin"
+
+          if (!(Test-Path "$cmakePath\cmake.exe")) {
+            throw "CMake executable was not found after extraction."
+          }
+
+          Write-Host "CMake installed at:"
+          Write-Host $cmakePath
+
+          # Make this CMake the default for all following steps.
+          $env:Path = "$cmakePath;$env:Path"
+
+          "CMAKE_PATH=$cmakePath" >> $env:GITHUB_ENV
+          "CMAKE_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Configure CMake path
+        shell: powershell
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CMAKE_PATH)) {
+            $cmakeCommand = Get-Command cmake -ErrorAction Stop
+
+            $cmakeExe = $cmakeCommand.Source
+            $cmakeBin = Split-Path $cmakeExe -Parent
+
+            Write-Host "Using system CMake:"
+            Write-Host $cmakeExe
+
+            "CMAKE_PATH=$cmakeBin" >> $env:GITHUB_ENV
+          }
+          else {
+            Write-Host "Using downloaded CMake:"
+            Write-Host $env:CMAKE_PATH
+          }
+
+      - name: Verify CMake 3.29.6
+        shell: powershell
+        run: |
+          $cmakeExe = Join-Path $env:CMAKE_PATH "cmake.exe"
+
+          if (!(Test-Path $cmakeExe)) {
+            throw "CMake executable not found at $cmakeExe"
+          }
+
+          $versionOutput = & $cmakeExe --version 2>&1
+
+          Write-Host $versionOutput
+
+          $versionLine = $versionOutput |
+            Select-String -Pattern "cmake version ([0-9]+\.[0-9]+\.[0-9]+)" |
+            Select-Object -First 1
+
+          if ($null -eq $versionLine) {
+            throw "Unable to determine CMake version."
+          }
+
+          $version = $versionLine.Matches[0].Groups[1].Value
+
+          if ($version -ne "3.29.6") {
+            throw "Wrong CMake version detected: $version. Expected 3.29.6."
+          }
+
+          Write-Host ""
+          Write-Host "CMake 3.29.6 verified successfully."
+
+      # ------------------------------------------------------------
+      # MSVC
+      # ------------------------------------------------------------
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: amd64
 
-      - name: Generate CMake project
-        run: |
-          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
-            & "$env:CMAKE_PATH\cmake.exe" -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -S. -Bbuild -G Ninja
-          } else {
-            cmake -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -S. -Bbuild -G Ninja
-          }
-        shell: powershell
+      # ------------------------------------------------------------
+      # sccache
+      # ------------------------------------------------------------
 
-      - name: Build 64bit release DLL
-        run: |
-          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
-            & "$env:CMAKE_PATH\cmake.exe" --build ./build --config RelWithDebInfo --target Terminus --
-          } else {
-            cmake --build ./build --config RelWithDebInfo --target Terminus --
-          }
+      - name: Install sccache
         shell: powershell
+        run: |
+          $sccache = Get-Command sccache -ErrorAction SilentlyContinue
+
+          if ($null -ne $sccache) {
+            Write-Host "sccache is already installed:"
+            Write-Host $sccache.Source
+
+            & sccache --version
+            exit 0
+          }
+
+          Write-Host "sccache was not found."
+
+          if (Get-Command choco -ErrorAction SilentlyContinue) {
+            Write-Host "Installing sccache using Chocolatey..."
+
+            choco install sccache -y --no-progress
+
+            refreshenv
+
+            $sccache = Get-Command sccache -ErrorAction SilentlyContinue
+
+            if ($null -eq $sccache) {
+              throw "sccache installation completed but executable could not be found."
+            }
+
+            Write-Host "sccache installed successfully:"
+            Write-Host $sccache.Source
+
+            & sccache --version
+          }
+          else {
+            throw "sccache is not installed and Chocolatey is unavailable on this runner."
+          }
+
+      # ------------------------------------------------------------
+      # sccache cache
+      # ------------------------------------------------------------
+
+      - name: Configure sccache
+        shell: powershell
+        run: |
+          $sccacheDir = "$env:GITHUB_WORKSPACE\.sccache"
+
+          if (!(Test-Path $sccacheDir)) {
+            New-Item `
+              -ItemType Directory `
+              -Path $sccacheDir `
+              -Force | Out-Null
+          }
+
+          "SCCACHE_DIR=$sccacheDir" >> $env:GITHUB_ENV
+          "SCCACHE_CACHE_SIZE=5G" >> $env:GITHUB_ENV
+
+          Write-Host "sccache directory:"
+          Write-Host $sccacheDir
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: .sccache
+          key: sccache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake', '**/CMakePresets.json') }}
+          restore-keys: |
+            sccache-${{ runner.os }}-${{ runner.arch }}-
+
+      # ------------------------------------------------------------
+      # CMake Configure
+      # ------------------------------------------------------------
+
+      - name: Generate CMake project
+        shell: powershell
+        run: |
+          $cmakeExe = Join-Path $env:CMAKE_PATH "cmake.exe"
+
+          if (Test-Path "build") {
+            Write-Host "Existing build directory detected."
+          }
+          else {
+            Write-Host "Creating new build directory."
+          }
+
+          & $cmakeExe `
+            -D CMAKE_BUILD_TYPE=RelWithDebInfo `
+            -D OPTIMIZE=YES `
+            -D CMAKE_C_COMPILER_LAUNCHER=sccache `
+            -D CMAKE_CXX_COMPILER_LAUNCHER=sccache `
+            -S . `
+            -B build `
+            -G Ninja
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "CMake configuration failed."
+          }
+
+      # ------------------------------------------------------------
+      # Build
+      # ------------------------------------------------------------
+
+      - name: Build 64-bit release DLL
+        shell: powershell
+        run: |
+          $cmakeExe = Join-Path $env:CMAKE_PATH "cmake.exe"
+
+          Write-Host "Starting Terminus build..."
+          Write-Host ""
+
+          & $cmakeExe `
+            --build ./build `
+            --config RelWithDebInfo `
+            --target Terminus `
+            --parallel
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Terminus build failed."
+          }
+
+      # ------------------------------------------------------------
+      # Show sccache statistics
+      # ------------------------------------------------------------
+
+      - name: Show compiler cache statistics
+        shell: powershell
+        run: |
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "sccache statistics"
+          Write-Host "========================================"
+          Write-Host ""
+
+          sccache --show-stats
+
+      # ------------------------------------------------------------
+      # Verify DLL
+      # ------------------------------------------------------------
+
+      - name: Verify build output
+        shell: powershell
+        run: |
+          $dll = Get-ChildItem `
+            -Path "." `
+            -Filter "Terminus.dll" `
+            -Recurse `
+            -File `
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if ($null -eq $dll) {
+            Write-Host "Terminus.dll was not found."
+
+            Write-Host ""
+            Write-Host "Build directory contents:"
+            Get-ChildItem `
+              -Path "./build" `
+              -Recurse |
+              Select-Object FullName
+
+            throw "Terminus.dll was not produced."
+          }
+
+          if ($dll.Length -eq 0) {
+            throw "Terminus.dll was produced but is 0 bytes."
+          }
+
+          Write-Host ""
+          Write-Host "Terminus.dll found:"
+          Write-Host $dll.FullName
+          Write-Host "Size: $($dll.Length) bytes"
+
+      # ------------------------------------------------------------
+      # Upload Artifact
+      # ------------------------------------------------------------
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -103,21 +395,41 @@ jobs:
           path: |
             build/Terminus.dll
             build/Terminus.pdb
+          if-no-files-found: error
+          compression-level: 0
+
+      # ------------------------------------------------------------
+      # Build Information
+      # ------------------------------------------------------------
 
       - name: Generate Build Info
         id: var
-        run: |
-          echo "full_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
-          echo "short_sha=$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
         shell: powershell
+        run: |
+          $fullSha = git rev-parse HEAD
+          $shortSha = git rev-parse --short HEAD
+
+          "full_sha=$fullSha" >> $env:GITHUB_OUTPUT
+          "short_sha=$shortSha" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Full SHA: $fullSha"
+          Write-Host "Short SHA: $shortSha"
+
+
+  # ================================================================
+  # RELEASE
+  # ================================================================
 
   recreate_release:
     runs-on: ubuntu-latest
     name: Recreate Release
-    needs: build_nightly
-    if: needs.check_recent_commit.outputs.should_run == 'true'
+
+    needs:
+      - build_nightly
+
+    if: needs.build_nightly.result == 'success'
+
     steps:
-      - uses: actions/checkout@v4
 
       - name: Delete Existing Release
         id: delete_release
@@ -128,75 +440,142 @@ jobs:
             const repo = context.repo.repo;
             const tag = "nightly";
 
-            // List all releases and find the release by tag
-            const releases = await github.rest.repos.listReleases({
-              owner: owner,
-              repo: repo,
-            });
+            console.log(`Looking for existing ${tag} release...`);
 
-            const release = releases.data.find(release => release.tag_name === tag);
+            const releases = await github.paginate(
+              github.rest.repos.listReleases,
+              {
+                owner,
+                repo,
+                per_page: 100
+              }
+            );
 
-            // Check if the release exists and delete it
+            const release = releases.find(
+              release => release.tag_name === tag
+            );
+
             if (release) {
+              console.log(`Deleting release ${release.id}...`);
+
               await github.rest.repos.deleteRelease({
-                owner: owner,
-                repo: repo,
-                release_id: release.id,
+                owner,
+                repo,
+                release_id: release.id
               });
-              console.log(`Deleted release with ID ${release.id}`);
-            } else {
-              console.log("No existing release to delete");
+
+              console.log("Release deleted.");
+            }
+            else {
+              console.log("No existing nightly release found.");
             }
 
-            // Delete the tag
             try {
               await github.rest.git.deleteRef({
-                owner: owner,
-                repo: repo,
-                ref: `tags/${tag}`,
+                owner,
+                repo,
+                ref: `tags/${tag}`
               });
-              console.log(`Deleted tag ${tag}`);
-            } catch (error) {
-              console.error(`Error deleting tag: ${error.message}`);
+
+              console.log(`Deleted tag ${tag}.`);
             }
+            catch (error) {
+              if (error.status === 404) {
+                console.log(`Tag ${tag} does not exist.`);
+              }
+              else {
+                throw error;
+              }
+            }
+
+      # ------------------------------------------------------------
+      # Download Artifact
+      # ------------------------------------------------------------
 
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
           name: binary
+          path: release
+
+      - name: Verify downloaded DLL
+        shell: bash
+        run: |
+          echo "Downloaded files:"
+          find release -type f -print
+
+          if [ ! -f "release/Terminus.dll" ]; then
+            echo "ERROR: Terminus.dll was not downloaded."
+            exit 1
+          fi
+
+          if [ ! -s "release/Terminus.dll" ]; then
+            echo "ERROR: Terminus.dll is empty."
+            exit 1
+          fi
+
+          echo ""
+          echo "Terminus.dll:"
+          ls -lh release/Terminus.dll
+
+      # ------------------------------------------------------------
+      # SHA256
+      # ------------------------------------------------------------
 
       - name: Echo build sha256
         id: build_sha
+        shell: bash
         run: |
-          sha256sum Terminus.dll > sha256.checksum
-          echo "build_sha=$(cat sha256.checksum)" >> $GITHUB_OUTPUT
-          cat sha256.checksum
+          checksum=$(sha256sum release/Terminus.dll)
+
+          echo "$checksum" > release/sha256.checksum
+
+          echo "build_sha=$checksum" >> "$GITHUB_OUTPUT"
+
+          echo ""
+          echo "Build SHA256:"
+          cat release/sha256.checksum
+
+      # ------------------------------------------------------------
+      # Create Release
+      # ------------------------------------------------------------
 
       - name: Nightly Release
         uses: softprops/action-gh-release@v2
         with:
           name: Nightly [${{ needs.build_nightly.outputs.short_sha }}]
           tag_name: nightly
+
           body: |
-            **This release has been built by Github Actions**
+            **This release has been built by GitHub Actions**
+
             [Link to build](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
             Build SHA256:
-            ${{ steps.build_sha.outputs.build_sha }}
 
-            To verify the build SHA256 during the action, click the build link, go-to "Create Release", open the Echo build sha256 step and read the sha256.
+            `${{ steps.build_sha.outputs.build_sha }}`
+
+            To verify the build SHA256 during the action, click the build link, go to the **Recreate Release** job, open the **Echo build sha256** step and read the SHA256.
 
             You can download the build artifacts, generate a SHA256 checksum and compare it with the below binary.
+
             Build artifacts ARE NOT automatically the same as release assets since release assets can be modified afterwards.
-            
-            These are nightly builds of Terminus, they are provided for testing purposes only:
+
+            These are nightly builds of Terminus, provided for testing purposes only:
+
             - Test if your build environment produces a broken Terminus.dll
             - Test if source code is out of date and no longer compatible with the current version of Red Dead Redemption 2
-            
+
             If you wish to use this menu as-is you are on your own, no warranty is provided.
-            
+
             Full Commit Hash:
-            ${{ needs.build_nightly.outputs.full_sha }}
+
+            `${{ needs.build_nightly.outputs.full_sha }}`
 
           files: |
-           Terminus.dll
+            release/Terminus.dll
+
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          draft: false
+          prerelease: true
