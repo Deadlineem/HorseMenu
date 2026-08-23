@@ -56,7 +56,7 @@ jobs:
         run: cmake --build ./build --config RelWithDebInfo --target Terminus --
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binary
           path: |
@@ -79,7 +79,7 @@ jobs:
 
       - name: Delete Existing Release
         id: delete_release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
@@ -119,7 +119,7 @@ jobs:
             }
 
       - name: Download Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binary
 
@@ -131,7 +131,7 @@ jobs:
           cat sha256.checksum
 
       - name: Nightly Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Nightly [${{ needs.build_nightly.outputs.short_sha }}]
           tag_name: nightly
@@ -140,23 +140,3 @@ jobs:
             [Link to build](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
             Build SHA256:
-            ```
-            ${{ steps.build_sha.outputs.build_sha }}
-            ```
-            To verify the build SHA256 during the action, click the build link, go-to "Create Release", open the Echo build sha256 step and read the sha256.
-
-            You can download the build artifacts, generate a SHA256 checksum and compare it with the below binary.
-            Build artifacts ARE NOT automatically the same as release assets since release assets can be modified afterwards.
-
-            These are nightly builds of Terminus, they are provided for testing purposes only:
-            - Test if your build environment produces a broken Terminus.dll
-            - Test if source code is out of date and no longer compatible with the current version of Red Dead Redemption 2
-
-            If you wish to use this menu as-is you are on your own, no warranty is provided.
-
-            Full Commit Hash:
-            ```
-            ${{ needs.build_nightly.outputs.full_sha }}
-            ```
-          files: |
-            Terminus.dll
