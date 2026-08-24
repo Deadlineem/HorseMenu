@@ -16,6 +16,7 @@ jobs:
     name: Check Recent Commit
     outputs:
       should_run: ${{ steps.should_run.outputs.should_run }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,18 +28,29 @@ jobs:
           else
             echo "should_run=true" >> $GITHUB_OUTPUT
           fi
+
   build_nightly:
     runs-on: [self-hosted, Windows]
     name: Build Nightly
     needs: check_recent_commit
     if: needs.check_recent_commit.outputs.should_run == 'true'
+
     outputs:
       full_sha: ${{ steps.var.outputs.full_sha }}
       short_sha: ${{ steps.var.outputs.short_sha }}
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Fix git safe directory
+        run: |
+          git config --global --add safe.directory $env:GITHUB_WORKSPACE
+
+          # Also allow submodules and other repositories
+          git config --global --add safe.directory "*"
+        shell: powershell
 
       - name: Install CMake 3.29
         run: |
@@ -102,6 +114,7 @@ jobs:
           path: |
             build/Terminus.dll
             build/Terminus.pdb
+
       - name: Generate Build Info
         id: var
         run: |
@@ -114,6 +127,7 @@ jobs:
     name: Recreate Release
     needs: build_nightly
     if: needs.check_recent_commit.outputs.should_run == 'true'
+
     steps:
       - uses: actions/checkout@v4
 
@@ -125,12 +139,15 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const tag = "nightly";
+
             // List all releases and find the release by tag
             const releases = await github.rest.repos.listReleases({
               owner: owner,
               repo: repo,
             });
+
             const release = releases.data.find(release => release.tag_name === tag);
+
             // Check if the release exists and delete it
             if (release) {
               await github.rest.repos.deleteRelease({
@@ -138,10 +155,12 @@ jobs:
                 repo: repo,
                 release_id: release.id,
               });
+
               console.log(`Deleted release with ID ${release.id}`);
             } else {
               console.log("No existing release to delete");
             }
+
             // Delete the tag
             try {
               await github.rest.git.deleteRef({
@@ -149,10 +168,12 @@ jobs:
                 repo: repo,
                 ref: `tags/${tag}`,
               });
+
               console.log(`Deleted tag ${tag}`);
             } catch (error) {
               console.error(`Error deleting tag: ${error.message}`);
             }
+
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
@@ -164,6 +185,7 @@ jobs:
           sha256sum Terminus.dll > sha256.checksum
           echo "build_sha=$(cat sha256.checksum)" >> $GITHUB_OUTPUT
           cat sha256.checksum
+
       - name: Nightly Release
         uses: softprops/action-gh-release@v2
         with:
@@ -171,20 +193,26 @@ jobs:
           tag_name: nightly
           body: |
             **This release has been built by Github Actions**
+
             [Link to build](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
             Build SHA256:
             ${{ steps.build_sha.outputs.build_sha }}
+
             To verify the build SHA256 during the action, click the build link, go-to "Create Release", open the Echo build sha256 step and read the sha256.
+
             You can download the build artifacts, generate a SHA256 checksum and compare it with the below binary.
             Build artifacts ARE NOT automatically the same as release assets since release assets can be modified afterwards.
-            
+
             These are nightly builds of Terminus, they are provided for testing purposes only:
+
             - Test if your build environment produces a broken Terminus.dll
             - Test if source code is out of date and no longer compatible with the current version of Red Dead Redemption 2
-            
+
             If you wish to use this menu as-is you are on your own, no warranty is provided.
-            
+
             Full Commit Hash:
             ${{ needs.build_nightly.outputs.full_sha }}
+
           files: |
-           Terminus.dll
+            Terminus.dll
