@@ -18,7 +18,6 @@
 #include "game/rdr/Natives.hpp"
 #include "game/rdr/Pools.hpp"
 #include "core/commands/BoolCommand.hpp"
-#include "game/rdr/data/WeaponTypes.hpp"
 #include <game/rdr/Natives.hpp>
 #include <rage/fwBasePool.hpp>
 #include <rage/pools.hpp>
