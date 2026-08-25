@@ -7,7 +7,7 @@
 
 namespace YimMenu::Features
 {
-	const char* GetRandomNonMPWeapon()
+	static const char* GetRandomNonMPWeapon()
 	{
 		static std::vector<const char*> validWeapons;
 
@@ -54,7 +54,7 @@ namespace YimMenu::Features
 			{
 				if (!npcs.IsPlayer())
 				{
-					const char* randomWeapon = GetRandomNonMPWeapon();
+					static const char* randomWeapon = GetRandomNonMPWeapon();
 					Hash hasWeapon = WEAPON::_GET_PED_CURRENT_HELD_WEAPON(npcs.GetHandle());
 					bool isUnarmed = (hasWeapon == 0 || hasWeapon == Joaat("WEAPON_UNARMED"));
 					if (isUnarmed)
@@ -77,6 +77,8 @@ namespace YimMenu::Features
 						PED::SET_PED_CONFIG_FLAG(npcs.GetHandle(), 8, 1);
 						PED::SET_PED_CONFIG_FLAG(npcs.GetHandle(), 40, 1);
 						PED::SET_PED_CONFIG_FLAG(npcs.GetHandle(), 569, 1);
+						PED::SET_PED_MAX_HEALTH(npcs.GetHandle(), 999999);
+						PED::SET_PED_ACCURACY(npcs.GetHandle(), 100);
 
 						WEAPON::GIVE_WEAPON_TO_PED(npcs.GetHandle(),
 							Joaat(randomWeapon),
@@ -91,10 +93,8 @@ namespace YimMenu::Features
 							0,
 							0,
 							0);
-						WEAPON::SET_PED_CURRENT_WEAPON_VISIBLE(npcs.GetHandle(), 1, 0, 1, 0);
 						PED::_REGISTER_HATED_TARGETS_IN_AREA(npcs.GetHandle(), 0.0f, 0.0f, 0.0f, 100000.0f);
 						PED::REGISTER_HATED_TARGETS_AROUND_PED(npcs.GetHandle(), 100000.0f);
-						TASK::TASK_COMBAT_HATED_TARGETS(npcs.GetHandle(), 100000.0f);
 					}
 				}
 			}
