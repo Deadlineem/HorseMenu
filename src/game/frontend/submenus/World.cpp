@@ -18,7 +18,7 @@
 #include "game/rdr/Natives.hpp"
 #include "game/rdr/Pools.hpp"
 #include "core/commands/BoolCommand.hpp"
-
+#include "game/rdr/data/WeaponTypes.hpp"
 #include <game/rdr/Natives.hpp>
 #include <rage/fwBasePool.hpp>
 #include <rage/pools.hpp>
@@ -56,8 +56,7 @@ namespace YimMenu::Submenus
 		auto weather = std::make_shared<Category>("Weather");
 		auto shows   = std::make_shared<Category>("Shows");
 		auto time    = std::make_shared<Category>("Time");
-		auto map	 = std::make_shared<Category>("Map");
-
+		auto map = std::make_shared<Category>("Map");
 
 		time->AddItem(std::make_shared<ImGuiItem>([] {
 			static int hour, minute, second;
@@ -139,9 +138,6 @@ namespace YimMenu::Submenus
 		spawners->AddItem(objectSpawnerGroup);
 		spawners->AddItem(trainSpawnerGroup);
 
-		trainSpawnerGroup->AddItem(std::make_shared<BoolCommandItem>("fasttrain"_J));
-		pedSpawnerGroup->AddItem(std::make_shared<BoolCommandItem>("pedsriot"_J));
-
 		auto poolCounter = std::make_shared<ImGuiItem>([] {
 			if (GetPedPool())
 				ImGui::Text("%s",
@@ -190,7 +186,8 @@ namespace YimMenu::Submenus
 		main->AddItem(std::move(bringOpts));
 		main->AddItem(std::move(minigames));
 		main->AddItem(std::move(misc));
-
+		main->AddItem(std::make_shared<BoolCommandItem>("fasttrain"_J));
+		main->AddItem(std::make_shared<BoolCommandItem>("pedsriot"_J));
 
 		shows->AddItem(std::make_shared<ImGuiItem>([] {
 			RenderShowsMenu();

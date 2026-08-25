@@ -12,7 +12,7 @@ namespace YimMenu::Features
 		virtual void OnCall() override
 		{
 			// Sort of works
-			for (const auto& weapon : Data::g_WeaponTypes)
+			for (const char* weapon : Data::g_WeaponTypes)
 				WEAPON::GIVE_WEAPON_TO_PED(Self::GetPed().GetHandle(), Joaat(weapon), 9999, true, false, 0, true, 0.5f, 1.0f, 0x2CD419DC, true, 0.0f, false);
 		}
 	};
