@@ -63,6 +63,7 @@ namespace YimMenu::Features
 						Hash riotGroup = "REL_CRIMINALS"_J;
 						PED::SET_PED_RELATIONSHIP_GROUP_HASH(npcs.GetHandle(), riotGroup);
 						PED::SET_RELATIONSHIP_BETWEEN_GROUPS(6, riotGroup, riotGroup);
+						PED::SET_RELATIONSHIP_BETWEEN_GROUPS(1, riotGroup, "REL_NO_RELATIONSHIP"_J);
 						PED::_SET_PED_INTERACTION_PERSONALITY(npcs.GetHandle(), "AGGRESSIVE"_J);
 						PED::_SET_PED_PERSONALITY(npcs.GetHandle(), "BOUNTY_HUNTER"_J);
 						PED::SET_PED_COMBAT_ATTRIBUTES(npcs.GetHandle(), 5, 1);
@@ -79,7 +80,6 @@ namespace YimMenu::Features
 						PED::SET_PED_CONFIG_FLAG(npcs.GetHandle(), 569, 1);
 						PED::SET_PED_MAX_HEALTH(npcs.GetHandle(), 999999);
 						PED::SET_PED_ACCURACY(npcs.GetHandle(), 100);
-
 						WEAPON::GIVE_WEAPON_TO_PED(npcs.GetHandle(),
 							Joaat(randomWeapon),
 							9999, // Ammo
@@ -95,6 +95,8 @@ namespace YimMenu::Features
 							0);
 						PED::_REGISTER_HATED_TARGETS_IN_AREA(npcs.GetHandle(), 0.0f, 0.0f, 0.0f, 100000.0f);
 						PED::REGISTER_HATED_TARGETS_AROUND_PED(npcs.GetHandle(), 100000.0f);
+						WEAPON::SET_PED_DROPS_WEAPONS_WHEN_DEAD(npcs.GetHandle(), 0);
+						STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(npcs.GetHandle());
 					}
 				}
 			}
