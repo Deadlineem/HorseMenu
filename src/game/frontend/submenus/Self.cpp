@@ -209,6 +209,7 @@ namespace YimMenu::Submenus
 		horseGlobalsGroup->AddItem(std::make_shared<BoolCommandItem>("keephorseagitationlow"_J));
 		horseGlobalsGroup->AddItem(std::make_shared<BoolCommandItem>("flaminghooves"_J));
 		horseGlobalsGroup->AddItem(std::make_shared<CommandItem>("tpmounttoself"_J));
+
 		static float horseScale = 1;
 		horseGlobalsGroup->AddItem(std::make_shared<ImGuiItem>([] {
 			ImGui::Text("Horse Scale");

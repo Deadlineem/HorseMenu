@@ -16,8 +16,9 @@ jobs:
     name: Check Recent Commit
     outputs:
       should_run: ${{ steps.should_run.outputs.should_run }}
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - id: should_run
         name: Check if latest commit date is within the previous 24 hours
@@ -33,16 +34,55 @@ jobs:
     name: Build Nightly
     needs: check_recent_commit
     if: needs.check_recent_commit.outputs.should_run == 'true'
+
     outputs:
       full_sha: ${{ steps.var.outputs.full_sha }}
       short_sha: ${{ steps.var.outputs.short_sha }}
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
+      - name: Fix git safe directory
+        run: |
+          git config --global --add safe.directory $env:GITHUB_WORKSPACE
+
+          # Also allow submodules and other repositories
+          git config --global --add safe.directory "*"
+        shell: powershell
+
+      - name: Install CMake 3.29
+        run: |
+          # Download and install CMake 3.29.6
+          $url = "https://github.com/Kitware/CMake/releases/download/v3.29.6/cmake-3.29.6-windows-x86_64.zip"
+          $output = "$env:TEMP\cmake.zip"
+          $extractPath = "$env:TEMP\cmake"
+          
+          Write-Host "Downloading CMake 3.29.6..."
+          Invoke-WebRequest -Uri $url -OutFile $output
+          
+          Write-Host "Extracting CMake..."
+          Expand-Archive -Path $output -DestinationPath $extractPath -Force
+          
+          # Add CMake to PATH for this session
+          $cmakePath = "$extractPath\cmake-3.29.6-windows-x86_64\bin"
+          $env:Path = "$cmakePath;$env:Path"
+          
+          # Also set it for subsequent steps
+          echo "CMAKE_PATH=$cmakePath" >> $env:GITHUB_ENV
+          
+          Write-Host "CMake installed successfully!"
+        shell: powershell
+
       - name: Check CMake version
-        run: cmake --version
+        run: |
+          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
+            & "$env:CMAKE_PATH\cmake.exe" --version
+          } else {
+            cmake --version
+          }
+        shell: powershell
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -50,13 +90,25 @@ jobs:
           arch: amd64
 
       - name: Generate CMake project
-        run: cmake -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -S. -Bbuild -G Ninja
+        run: |
+          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
+            & "$env:CMAKE_PATH\cmake.exe" -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -S. -Bbuild -G Ninja
+          } else {
+            cmake -D CMAKE_BUILD_TYPE=RelWithDebInfo -D OPTIMIZE=YES -S. -Bbuild -G Ninja
+          }
+        shell: powershell
 
       - name: Build 64bit release DLL
-        run: cmake --build ./build --config RelWithDebInfo --target Terminus --
+        run: |
+          if (Test-Path "$env:CMAKE_PATH\cmake.exe") {
+            & "$env:CMAKE_PATH\cmake.exe" --build ./build --config RelWithDebInfo --target Terminus --
+          } else {
+            cmake --build ./build --config RelWithDebInfo --target Terminus --
+          }
+        shell: powershell
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binary
           path: |
@@ -68,18 +120,20 @@ jobs:
         run: |
           echo "full_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
           echo "short_sha=$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
+        shell: powershell
 
   recreate_release:
     runs-on: ubuntu-latest
     name: Recreate Release
     needs: build_nightly
     if: needs.check_recent_commit.outputs.should_run == 'true'
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Delete Existing Release
         id: delete_release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
@@ -101,6 +155,7 @@ jobs:
                 repo: repo,
                 release_id: release.id,
               });
+
               console.log(`Deleted release with ID ${release.id}`);
             } else {
               console.log("No existing release to delete");
@@ -113,13 +168,14 @@ jobs:
                 repo: repo,
                 ref: `tags/${tag}`,
               });
+
               console.log(`Deleted tag ${tag}`);
             } catch (error) {
               console.error(`Error deleting tag: ${error.message}`);
             }
 
       - name: Download Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: binary
 
@@ -131,32 +187,32 @@ jobs:
           cat sha256.checksum
 
       - name: Nightly Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Nightly [${{ needs.build_nightly.outputs.short_sha }}]
           tag_name: nightly
           body: |
             **This release has been built by Github Actions**
+
             [Link to build](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
             Build SHA256:
-            ```
             ${{ steps.build_sha.outputs.build_sha }}
-            ```
+
             To verify the build SHA256 during the action, click the build link, go-to "Create Release", open the Echo build sha256 step and read the sha256.
 
             You can download the build artifacts, generate a SHA256 checksum and compare it with the below binary.
             Build artifacts ARE NOT automatically the same as release assets since release assets can be modified afterwards.
 
             These are nightly builds of Terminus, they are provided for testing purposes only:
+
             - Test if your build environment produces a broken Terminus.dll
             - Test if source code is out of date and no longer compatible with the current version of Red Dead Redemption 2
 
             If you wish to use this menu as-is you are on your own, no warranty is provided.
 
             Full Commit Hash:
-            ```
             ${{ needs.build_nightly.outputs.full_sha }}
-            ```
+
           files: |
             Terminus.dll

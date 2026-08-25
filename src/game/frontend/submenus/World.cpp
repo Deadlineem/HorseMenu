@@ -4,6 +4,7 @@
 #include "World/Shows.hpp"
 #include "World/Train.hpp"
 #include "World/TrainSpeed.cpp"
+#include "World/PedsRiot.cpp"
 #include "World/VehicleSpawner.hpp"
 #include "World/ObjectSpawner.hpp"
 #include "World/Weather.hpp"
@@ -139,6 +140,7 @@ namespace YimMenu::Submenus
 		spawners->AddItem(trainSpawnerGroup);
 
 		trainSpawnerGroup->AddItem(std::make_shared<BoolCommandItem>("fasttrain"_J));
+		pedSpawnerGroup->AddItem(std::make_shared<BoolCommandItem>("pedsriot"_J));
 
 		auto poolCounter = std::make_shared<ImGuiItem>([] {
 			if (GetPedPool())
