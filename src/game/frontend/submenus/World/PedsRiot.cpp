@@ -13,8 +13,9 @@ namespace YimMenu::Features
 
 		if (validWeapons.empty()) // Build the list once
 		{
-			for (const auto& weapon : Data::g_WeaponTypes)
+			for (int i = 0; i < Data::g_WeaponTypesCount; i++)
 			{
+				const char* weapon = Data::g_WeaponTypes[i];
 				std::string weaponStr(weapon);
 
 				// Only exclude weapons containing "_MP"
