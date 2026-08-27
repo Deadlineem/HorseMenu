@@ -50,7 +50,7 @@ namespace YimMenu::Features
 		return "WEAPON_THROWN_DYNAMITE";
 	}
 
-	void ApplyCombatAttributes(int ped)
+	static void ApplyCombatAttributes(int ped)
 	{
 		PED::SET_PED_COMBAT_ATTRIBUTES(ped, 5, 1);
 		PED::SET_PED_COMBAT_ATTRIBUTES(ped, 17, 0);
@@ -68,13 +68,13 @@ namespace YimMenu::Features
 		WEAPON::SET_PED_DROPS_WEAPONS_WHEN_DEAD(ped, 0);
 	}
 
-	void RegisterHatedTargets(int ped)
+	static void RegisterHatedTargets(int ped)
 	{
 		PED::_REGISTER_HATED_TARGETS_IN_AREA(ped, 0.0f, 0.0f, 0.0f, 100000.0f);
 		PED::REGISTER_HATED_TARGETS_AROUND_PED(ped, 100000.0f);
 	}
 
-	void RemovePedWeapons(int ped)
+	static void RemovePedWeapons(int ped)
 	{
 		WEAPON::REMOVE_ALL_PED_WEAPONS(ped, 1, 0);
 		Hash currentPedWeapon = WEAPON::_GET_PED_CURRENT_HELD_WEAPON(ped);
