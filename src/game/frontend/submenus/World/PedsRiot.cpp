@@ -91,8 +91,8 @@ namespace YimMenu::Features
 			{
 				// Check if ped is an animal or player
 				int pedType = PED::_GET_META_PED_TYPE(npcs.GetHandle());
-				bool isAnimal = (pedType == 3); // MPT_ANIMAL = 4
-				bool isPedestrian = (pedType == 0) || (pedType == 1) || (pedType == 2);
+				bool isAnimal = (pedType == 3) || (pedType == 4); // MPT_ANIMAL = 3, MPT_NONE = 4
+				bool isPedestrian = (pedType == 0) || (pedType == 1) || (pedType == 2); // MPT_MALE = 0, MPT_FEMALE = 1, MPT_TEEN = 2
 
 				bool isPlayer = npcs.IsPlayer();
 				Hash playerGroup = "REL_NO_RELATIONSHIP"_J;
@@ -143,8 +143,6 @@ namespace YimMenu::Features
 					// Friendly mode: Peds respect players but attack each other
 					PED::SET_RELATIONSHIP_BETWEEN_GROUPS(1, riotGroup, playerGroup);
 					PED::SET_RELATIONSHIP_BETWEEN_GROUPS(6, riotGroup, riotGroup);
-					PED::_SET_PED_INTERACTION_PERSONALITY(npcs.GetHandle(), "TIMID"_J);
-					PED::_SET_PED_PERSONALITY(npcs.GetHandle(), "STANDARD_PED_AGRO"_J);
 				}
 				else
 				{
