@@ -10,48 +10,45 @@
 
 namespace YimMenu::Features
 {
-	class PlayMusic : public LoopedCommand
+	class PlayMusic : public Command
 	{
-		using LoopedCommand::LoopedCommand;
+		using Command::Command;
 
-		virtual void OnTick() override
+		virtual void OnCall() override
 		{
-			// Get selected event from dropdown
-			static int selectedIndex = 0;
-			const char* eventName = "MRY3_WAGON_CHASE";
+			//TODO: Add a dropdown selection to play music, this is just a test for now
+			//TODO: Move this to a music manager class that can handle multiple music events and stop them when needed
+			//TODO: Move this to a different section in the menu, this only works locally so maybe Self?
+			const char* eventName = "FIN1_OPTION_A_HIGH_OS";
 
-			// Check if music is already playing
-			static bool isPrepared = false;
-			static bool isPlaying = false;
 
-			// Only prepare if not already prepared
-			if (!isPrepared)
-			{
-				isPrepared = AUDIO::PREPARE_MUSIC_EVENT(eventName);
-			}
+			bool isPrepared = AUDIO::PREPARE_MUSIC_EVENT(eventName);
 
-			// Check if music is currently playing
-			isPlaying = AUDIO::AUDIO_IS_MUSIC_PLAYING();
-
-			if (isPlaying)
-			{
-				AUDIO::TRIGGER_MUSIC_EVENT("MC_MUSIC_STOP");
-			}
-
-			// Only trigger if prepared and not already playing
-			if (isPrepared && !isPlaying)
+			if (isPrepared)
 			{
 				AUDIO::TRIGGER_MUSIC_EVENT(eventName);
-				isPlaying = true; // Set flag to prevent retriggering
-			}
-
-			// Reset prepared state if music stopped or event changed
-			if (isPlaying && !AUDIO::AUDIO_IS_MUSIC_PLAYING())
-			{
-				isPrepared = false;
-				isPlaying = false;
 			}
 		}
 	};
-	static PlayMusic _PlayMusic{"playmusic", "Play Music", "Plays selected music event on loop"};
+
+	class StopMusic : public Command
+	{
+		using Command::Command;
+
+		virtual void OnCall() override
+		{
+			const char* eventName = "MC_MUSIC_STOP";
+
+
+			bool isPrepared = AUDIO::PREPARE_MUSIC_EVENT(eventName);
+
+			if (isPrepared)
+			{
+				AUDIO::TRIGGER_MUSIC_EVENT(eventName);
+			}
+		}
+	};
+
+	static PlayMusic _PlayMusic{"playmusic", "Play Music", "Plays Arthurs last ride music"};
+	static StopMusic _StopMusic{"stopmusic", "Stop Music", "Stops all music"};
 }

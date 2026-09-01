@@ -121,7 +121,9 @@ namespace YimMenu::Submenus
 		miscGroup->AddItem(std::make_shared<BoolCommandItem>("blockalltelemetry"_J)); // move this to protections->misc
 		miscGroup->AddItem(std::make_shared<BoolCommandItem>("locklobby"_J));
 
-		miscGroup->AddItem(std::make_shared<BoolCommandItem>("playmusic"_J));
+		miscGroup->AddItem(std::make_shared<CommandItem>("playmusic"_J));
+		miscGroup->AddItem(std::make_shared<CommandItem>("stopmusic"_J));
+		miscGroup->AddItem(std::make_shared<CommandItem>("flyballoon"_J));
 
 		session->AddItem(sessionSwitcherGroup);
 		session->AddItem(teleportGroup);

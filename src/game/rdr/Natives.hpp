@@ -7134,6 +7134,8 @@ enum class NativeIndex
 	_0x29C733459A9011EB = 7127,
 	_0x7AF1BB4504EA5ED9 = 7128,
 	_0xCCB4635A071FB62D = 7129,
+	_SET_BALLOON_ROUTE = 7130,
+	_GET_BALLOON_OBJECT_FROM_VEHICLE = 7131,
 };
 
 namespace BUILTIN
@@ -14214,6 +14216,8 @@ namespace VEHICLE
 	FORCEINLINE constexpr void _0xCEB1F1EED484A5B4(Any p0, Any p1) { return YimMenu::NativeInvoker::Invoke<6757, void, false>(p0, p1); }
 	FORCEINLINE constexpr Any _0xF57DB8E83DCD8349(Any p0) { return YimMenu::NativeInvoker::Invoke<6758, Any, false>(p0); }
 	FORCEINLINE constexpr void _SET_BALLOON_HOVER_STATE(Vehicle balloon, float p1) { return YimMenu::NativeInvoker::Invoke<6759, void, false>(balloon, p1); }
+	FORCEINLINE constexpr void _SET_BALLOON_ROUTE(Vehicle balloon, float x, float y, float z, BOOL autoDrive, float speedMultiplier) { return YimMenu::NativeInvoker::Invoke<7130, void, false>(balloon, x, y, z, autoDrive, speedMultiplier); }
+	FORCEINLINE constexpr Entity _GET_BALLOON_OBJECT_FROM_VEHICLE(Vehicle vehicle) { return YimMenu::NativeInvoker::Invoke<7131, Entity, false>(vehicle); }
 	FORCEINLINE constexpr void _SET_DRAFT_VEHICLE_ALLOW_DRAFT_ANIMAL_AUTO_CREATION(Vehicle vehicle, BOOL allow) { return YimMenu::NativeInvoker::Invoke<6760, void, false>(vehicle, allow); }
 	FORCEINLINE constexpr void _0x6835AFEA10E186F4(Any p0, Any p1) { return YimMenu::NativeInvoker::Invoke<6761, void, false>(p0, p1); }
 	FORCEINLINE constexpr void _SET_DRAFT_ANIMAL_RANDOM_SEED(Vehicle vehicle, int seed) { return YimMenu::NativeInvoker::Invoke<6762, void, false>(vehicle, seed); }
