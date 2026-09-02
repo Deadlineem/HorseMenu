@@ -192,6 +192,7 @@ namespace YimMenu::Submenus
 		main->AddItem(std::make_shared<ConditionalItem>("pedsriot"_J, std::make_shared<BoolCommandItem>("pedsriotgodmode"_J)));
 		main->AddItem(std::make_shared<ConditionalItem>("pedsriot"_J, std::make_shared<BoolCommandItem>("pedsriotonlyanimals"_J)));
 		main->AddItem(std::make_shared<ConditionalItem>("pedsriot"_J, std::make_shared<BoolCommandItem>("pedsriotonlypeds"_J)));
+		main->AddItem(std::make_shared<BoolCommandItem>("forcepush"_J));
 
 		shows->AddItem(std::make_shared<ImGuiItem>([] {
 			RenderShowsMenu();
