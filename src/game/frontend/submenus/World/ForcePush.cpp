@@ -1,10 +1,11 @@
 // ForcePush.hpp
 #pragma once
 #include "core/commands/LoopedCommand.hpp"
-#include "game/backend/Self.hpp"
 #include "game/backend/NativeHooks.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/ScriptMgr.hpp"
+#include "game/backend/Self.hpp"
+#include "game/commands/PlayerCommand.hpp"
 #include "game/rdr/Enums.hpp"
 #include "game/rdr/Natives.hpp"
 #include "game/rdr/ScriptGlobal.hpp"
@@ -38,7 +39,7 @@ namespace YimMenu::Features
 			// Update cooldown
 			if (m_PushCooldown > 0.0f)
 			{
-				m_PushCooldown -= 0.016f; // Assuming 60fps
+				m_PushCooldown -= 0.016f;
 				if (m_PushCooldown < 0.0f)
 					m_PushCooldown = 0.0f;
 			}
@@ -47,7 +48,8 @@ namespace YimMenu::Features
 			if (IsPlayerUnarmed() && IsPlayerAiming() && IsPlayerShooting() && !m_IsPushing && m_PushCooldown <= 0.0f)
 			{
 				Entity aimedEntity;
-				if (PLAYER::GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(PLAYER::PLAYER_ID(), &aimedEntity))
+				// RDR2 native for getting the entity the player is aiming at
+				if (PLAYER::IS_PLAYER_FREE_AIMING_AT_ENTITY(PLAYER::PLAYER_ID(), &aimedEntity))
 				{
 					if (ENTITY::IS_ENTITY_A_PED(aimedEntity) && !PED::IS_PED_A_PLAYER(aimedEntity))
 					{
@@ -55,7 +57,8 @@ namespace YimMenu::Features
 						m_IsCharging = true;
 						m_ChargeTime = 0.0f;
 						m_PushStrength = 0.0f;
-						AUDIO::PLAY_SOUND_FRONTEND(-1, "CHARGE", "HUD_AMMO_SHOP_SOUNDSET", true);
+						// RDR2 sound native - using a generic interaction sound
+						AUDIO::PLAY_SOUND_FRONTEND("CABIN_WIND_01", 0x0CED0D77, true, 0);
 					}
 				}
 			}
@@ -70,7 +73,7 @@ namespace YimMenu::Features
 
 				if (m_TargetEntity != 0)
 				{
-					Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true);
+					Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
 					DrawForceEffect(targetPos, m_PushStrength / (BASE_PUSH_FORCE * 2.0f));
 				}
 
@@ -92,7 +95,7 @@ namespace YimMenu::Features
 				if (m_AnimationTick < MAX_ANIMATION_TICKS && m_TargetEntity != 0)
 				{
 					ApplyForceToTarget();
-					Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true);
+					Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
 					DrawForceEffect(targetPos, 1.0f - (float)m_AnimationTick / MAX_ANIMATION_TICKS);
 				}
 				else
@@ -105,13 +108,12 @@ namespace YimMenu::Features
 		virtual void OnDisable() override
 		{
 			ResetPushState();
-
-			// Clean up any lingering effects
+			// Clean up any lingering effects if needed
 			Ped playerPed = Self::GetPed();
 			if (playerPed)
 			{
-				// Reset any animation flags if needed
-				// Example: TASK::CLEAR_PED_TASKS(playerPed);
+				// Clear any tasks that might have been started
+				TASK::CLEAR_PED_TASKS(playerPed, false, false);
 			}
 		}
 
@@ -123,21 +125,26 @@ namespace YimMenu::Features
 				return false;
 
 			Hash currentWeapon;
+			// RDR2 native for getting current weapon
 			if (!WEAPON::GET_CURRENT_PED_WEAPON(playerPed, &currentWeapon, true, 0, false))
-				return true; // Default to true if can't get weapon
+				return true;
 
-			return currentWeapon == 0 || currentWeapon == 2725352035; // Unarmed hash
+			// Unarmed in RDR2 is typically 0x9D07F764 or just 0
+			return currentWeapon == 0 || currentWeapon == 0x9D07F764;
 		}
 
 		bool IsPlayerAiming()
 		{
-			return PLAYER::IS_PLAYER_FREE_AIMING(PLAYER::PLAYER_ID());
+			// RDR2 native for checking if player is aiming
+			return PAD::IS_CONTROL_PRESSED(0, 0x07CE1E61) || // INPUT_AIM
+			    PAD::IS_CONTROL_ENABLED(0, 0x07CE1E61);
 		}
 
 		bool IsPlayerShooting()
 		{
-			return PAD::IS_CONTROL_JUST_PRESSED(0, 0x07CE1E61) || // INPUT_ATTACK
-			    PAD::IS_CONTROL_JUST_PRESSED(0, 0x07B8BEAF);      // INPUT_ATTACK2
+			// RDR2 uses PAD natives for controller input
+			return PAD::IS_CONTROL_JUST_PRESSED(0, 0x07B8BEAF) || // INPUT_ATTACK
+			    PAD::IS_CONTROL_JUST_PRESSED(0, 0x07CE1E61);      // INPUT_AIM (shoot while aiming)
 		}
 
 		void ProcessForcePush()
@@ -152,14 +159,13 @@ namespace YimMenu::Features
 			if (!playerPed)
 				return;
 
-			Vector3 playerPos = ENTITY::GET_ENTITY_COORDS(playerPed, true);
-			Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true);
+			Vector3 playerPos = ENTITY::GET_ENTITY_COORDS(playerPed, true, false);
+			Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
 
 			m_PushDirection.x = targetPos.x - playerPos.x;
 			m_PushDirection.y = targetPos.y - playerPos.y;
 			m_PushDirection.z = (targetPos.z - playerPos.z) + 1.0f;
 
-			// Normalize
 			float length = sqrt(m_PushDirection.x * m_PushDirection.x + m_PushDirection.y * m_PushDirection.y
 			    + m_PushDirection.z * m_PushDirection.z);
 			if (length > 0.0f)
@@ -173,7 +179,8 @@ namespace YimMenu::Features
 			m_IsCharging = false;
 			m_AnimationTick = 0;
 
-			AUDIO::PLAY_SOUND_FRONTEND(-1, "PUSH", "HUD_AMMO_SHOP_SOUNDSET", true);
+			// RDR2 sound native
+			AUDIO::PLAY_SOUND_FRONTEND("PUSH"_J, "HUD_AMMO_SHOP_SOUNDSET"_J, true, 0);
 			ApplyForceToTarget();
 		}
 
@@ -184,8 +191,9 @@ namespace YimMenu::Features
 
 			float forceMagnitude = m_PushStrength * (1.0f - (float)m_AnimationTick / MAX_ANIMATION_TICKS * 0.5f);
 
+			// RDR2 force application native - note the different parameter order
 			ENTITY::APPLY_FORCE_TO_ENTITY(m_TargetEntity, // Entity
-			    1,                                        // Force flags
+			    1,                                        // Force type (0=force, 1=impulse, 2=torque, 3=angular)
 			    m_PushDirection.x * forceMagnitude,       // X force
 			    m_PushDirection.y * forceMagnitude,       // Y force
 			    m_PushDirection.z * forceMagnitude,       // Z force
@@ -200,7 +208,7 @@ namespace YimMenu::Features
 			    false // P12, P13
 			);
 
-			// Add torque for dramatic effect
+			// Add some ragdoll impulse for dramatic effect
 			ENTITY::APPLY_FORCE_TO_ENTITY(m_TargetEntity, 1, 0.0f, 0.0f, 0.0f, (rand() % 100 - 50) / 50.0f, (rand() % 100 - 50) / 50.0f, (rand() % 100 - 50) / 50.0f, 0, false, true, false, false, false);
 		}
 
@@ -214,7 +222,7 @@ namespace YimMenu::Features
 			float heading = ENTITY::GET_ENTITY_HEADING(playerPed);
 			float radHeading = heading * 3.14159f / 180.0f;
 
-			Vector3 handPos = ENTITY::GET_ENTITY_COORDS(playerPed, true);
+			Vector3 handPos = ENTITY::GET_ENTITY_COORDS(playerPed, true, false);
 			handPos.x += sin(radHeading) * 0.8f;
 			handPos.y += cos(radHeading) * 0.8f;
 			handPos.z += 0.7f;
@@ -228,8 +236,9 @@ namespace YimMenu::Features
 
 			if (m_TargetEntity != 0)
 			{
-				Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true);
+				Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
 
+				// RDR2 drawing native
 				CFX::DRAW_LINE(extendedPos.x, extendedPos.y, extendedPos.z, targetPos.x, targetPos.y, targetPos.z, 100, 150, 255, 255);
 
 				for (int i = 0; i < 10; i++)
@@ -242,6 +251,7 @@ namespace YimMenu::Features
 				}
 			}
 
+			// RDR2 camera shake native
 			if (progress < 0.3f)
 			{
 				CAM::SHAKE_GAMEPLAY_CAM("HAND_SHAKE", 0.3f * (1.0f - progress / 0.3f));
@@ -250,6 +260,7 @@ namespace YimMenu::Features
 
 		void DrawForceEffect(Vector3 position, float intensity)
 		{
+			// RDR2 marker drawing - similar to GTA but verify the parameters
 			CFX::DRAW_MARKER(28, // Sphere marker
 			    position.x,
 			    position.y,
@@ -275,6 +286,7 @@ namespace YimMenu::Features
 			    false,
 			    false);
 
+			// Sparkle particles
 			for (int i = 0; i < 5 * intensity; i++)
 			{
 				Vector3 sparklePos = {position.x + (float)(rand() % 100 - 50) / 100.0f,
@@ -293,6 +305,7 @@ namespace YimMenu::Features
 			m_TargetEntity = 0;
 			m_AnimationTick = 0;
 			m_PushCooldown = COOLDOWN_TIME;
+			// RDR2 camera shake stop
 			CAM::STOP_GAMEPLAY_CAM_SHAKING(false);
 		}
 	};
