@@ -180,7 +180,7 @@ namespace YimMenu::Features
 			m_AnimationTick = 0;
 
 			// RDR2 sound native
-			AUDIO::PLAY_SOUND_FRONTEND("PUSH"_J, "HUD_AMMO_SHOP_SOUNDSET"_J, true, 0);
+			AUDIO::PLAY_SOUND_FRONTEND("CABIN_WIND_01", 0x0CED0D77, true, 0);
 			ApplyForceToTarget();
 		}
 
