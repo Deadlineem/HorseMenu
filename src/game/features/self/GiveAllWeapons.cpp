@@ -13,7 +13,10 @@ namespace YimMenu::Features
 		{
 			for (int i = 0; i < Data::g_WeaponTypesCount; i++)
 			{
-				WEAPON::GIVE_WEAPON_TO_PED(Self::GetPed().GetHandle(), Joaat(Data::g_WeaponTypes[i]), 9999, false, false, 0, true, 0.5f, 1.0f, 0x2CD419DC, true, 0.0f, false);
+				auto selfPlayer = Self::GetPed().GetHandle();
+				if (!selfPlayer)
+					selfPlayer = PLAYER::PLAYER_PED_ID();
+				WEAPON::GIVE_WEAPON_TO_PED(selfPlayer, Joaat(Data::g_WeaponTypes[i]), 9999, false, false, 0, true, 0.5f, 1.0f, 0x2CD419DC, true, 0.0f, false);
 			}
 		}
 	};

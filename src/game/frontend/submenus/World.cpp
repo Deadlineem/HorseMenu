@@ -5,6 +5,7 @@
 #include "World/Train.hpp"
 #include "World/TrainSpeed.cpp"
 #include "World/PedsRiot.cpp"
+#include "World/ForcePush.cpp"
 #include "World/VehicleSpawner.hpp"
 #include "World/ObjectSpawner.hpp"
 #include "World/Weather.hpp"

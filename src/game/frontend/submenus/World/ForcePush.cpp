@@ -1,6 +1,6 @@
-// ForcePush.hpp
 #pragma once
 #include "core/commands/LoopedCommand.hpp"
+#include "core/frontend/Notifications.hpp"
 #include "game/backend/NativeHooks.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/ScriptMgr.hpp"
@@ -10,7 +10,6 @@
 #include "game/rdr/Natives.hpp"
 #include "game/rdr/ScriptGlobal.hpp"
 #include "game/rdr/Scripts.hpp"
-#include "core/frontend/Notifications.hpp"
 
 #include <cmath>
 
@@ -20,296 +19,304 @@ namespace YimMenu::Features
 	{
 		using LoopedCommand::LoopedCommand;
 
-		static inline Entity m_TargetEntity = 0;
-		static inline bool m_IsPushing = false;
-		static inline bool m_IsCharging = false;
-		static inline float m_ChargeTime = 0.0f;
-		static inline float m_PushCooldown = 0.0f;
-		static inline int m_AnimationTick = 0;
-		static inline Vector3 m_PushDirection = {0, 0, 0};
-		static inline float m_PushStrength = 0.0f;
+		Entity m_HeldEntity = 0;
+		bool m_WasShooting = false;
+		bool m_HasShownNotification = false;
 
-		static constexpr float MAX_CHARGE_TIME = 1.5f;
-		static constexpr float BASE_PUSH_FORCE = 25.0f;
-		static constexpr float COOLDOWN_TIME = 1.0f;
-		static constexpr int MAX_ANIMATION_TICKS = 60;
+		/*
+		 * Distance from the camera at which the entity is held.
+		 *
+		 * This is the point the crosshair is effectively projecting
+		 * into the world.
+		 */
+		static constexpr float HOLD_DISTANCE = 10.0f;
+
+		/*
+		 * Convert camera rotation into a forward direction.
+		 *
+		 * X = pitch
+		 * Z = yaw
+		 */
+		Vector3 getCameraDirection()
+		{
+			Vector3 cameraRotation = CAM::GET_GAMEPLAY_CAM_ROT(0);
+
+			float pitch = cameraRotation.x * 0.0174532924f;
+			float yaw = cameraRotation.z * 0.0174532924f;
+
+			float cosPitch = std::cos(pitch);
+
+			Vector3 direction{-std::sin(yaw) * cosPitch, std::cos(yaw) * cosPitch, std::sin(pitch)};
+
+			return direction;
+		}
+
+		Vector3 getCrosshairCoords(float distance)
+		{
+			// Get absolute camera position (world space)
+			Vector3 cameraCoords = CAM::GET_GAMEPLAY_CAM_COORD();
+
+			// Get absolute camera rotation (world space)
+			// This is exactly what getCameraDirection uses
+			Vector3 cameraRotation = CAM::GET_GAMEPLAY_CAM_ROT(0);
+
+			// Convert to radians (RDR2 uses degrees)
+			float pitch = cameraRotation.x * 0.0174532924f;
+			float yaw = cameraRotation.z * 0.0174532924f;
+
+			// Calculate direction using RDR2's world coordinate system
+			float cosPitch = std::cos(pitch);
+			float sinPitch = std::sin(pitch);
+			float cosYaw = std::cos(yaw);
+			float sinYaw = std::sin(yaw);
+
+			Vector3 direction;
+			direction.x = -sinYaw * cosPitch; // East/West
+			direction.y = cosYaw * cosPitch;  // North/South
+			direction.z = sinPitch;           // Up/Down
+
+			Vector3 targetPos = {cameraCoords.x + direction.x * distance,
+			    cameraCoords.y + direction.y * distance,
+			    cameraCoords.z + direction.z * distance};
+
+			return targetPos;
+		}
+
+		/*
+		 * Get the exact direction the active camera is facing.
+		 *
+		 * This is used when the entity is thrown.
+		 */
+		Vector3 getThrowDirection()
+		{
+			return getCameraDirection();
+
+			/*
+			 * Fallback to gameplay camera rotation if there isn't
+			 * a rendering camera handle.
+			 */
+			Vector3 rotation = CAM::GET_GAMEPLAY_CAM_ROT(0);
+
+			float pitch = rotation.x * 0.0174532924f;
+
+			float yaw = rotation.z * 0.0174532924f;
+
+			float cosPitch = std::cos(pitch);
+
+			return {-std::sin(yaw) * cosPitch, std::cos(yaw) * cosPitch, std::sin(pitch)};
+		}
+
+		/*
+		 * Attach the entity directly to the world coordinates
+		 * projected from the camera/crosshair.
+		 */
+		void attachEntityToCrosshair(Entity target)
+		{
+			if (target.GetHandle() == 0 || !ENTITY::DOES_ENTITY_EXIST(target.GetHandle()))
+			{
+				return;
+			}
+
+			target.ForceControl();
+
+			/*
+			 * Calculate the world-space point at the crosshair.
+			 */
+			Vector3 coords = getCrosshairCoords(HOLD_DISTANCE);
+
+			coords.z -= 0.3f;
+
+			Ped npc = ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle());
+			TASK::CLEAR_PED_TASKS_IMMEDIATELY(ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle()), true, true);
+
+			/*
+			 * Attach directly to those WORLD coordinates.
+			 */
+			ENTITY::SET_ENTITY_COORDS(target.GetHandle(), coords.x, coords.y, coords.z, false, false, false, false);
+		}
+
+		/*
+		 * This is your original force behavior, but the directional
+		 * portion now comes from the camera/crosshair.
+		 */
+		void applyForceToTarget(Entity target, float scale)
+		{
+			if (target.GetHandle() == 0 || !ENTITY::DOES_ENTITY_EXIST(target.GetHandle()))
+			{
+				return;
+			}
+
+			Ped npc = ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle());
+
+			target.ForceControl();
+
+			// Get the direction you are looking
+			Vector3 direction = getThrowDirection();
+
+			// Scale the direction
+			float forceScale = scale * 2.5f; // Keep your scale
+			Vector3 scaledDir = {direction.x * forceScale, direction.y * forceScale, direction.z * forceScale};
+
+			/*
+     * CRITICAL FIX #1: Reset the Ragdoll BEFORE throwing.
+     * This prevents the game from misinterpreting your WORLD vector 
+     * as a LOCAL vector inside the current ragdoll rotation.
+     */
+			PED::SET_PED_TO_RAGDOLL(npc.GetHandle(), 1, 1, 0, false, false, "DraggedByCart"); // Short, clean ragdoll timer
+
+			/*
+     * CRITICAL FIX #2: Use SET_ENTITY_VELOCITY.
+     * This native applies a pure world-space velocity. 
+     * It completely ignores the ped's internal physics rotation, 
+     * so the ped will ALWAYS fly exactly where you are looking.
+     */
+			ENTITY::SET_ENTITY_VELOCITY(target.GetHandle(), scaledDir.x, scaledDir.y, scaledDir.z);
+
+			/*
+     * CRITICAL FIX #3: Apply upward force separately for the "launch" feel.
+     * This bypasses the local vector issue completely.
+     */
+			ENTITY::APPLY_FORCE_TO_ENTITY(target.GetHandle(), 1, 0.0f, 0.0f, 2500.0f, 0.0f, 0.0f, 0.0f, 0, false, true, false, false, false);
+		}
+
+		/*
+		 * Release the entity and throw it.
+		 */
+		void releaseHeldEntity()
+		{
+			if (m_HeldEntity.GetHandle() == 0)
+			{
+				return;
+			}
+
+			if (!ENTITY::DOES_ENTITY_EXIST(m_HeldEntity.GetHandle()))
+			{
+				m_HeldEntity = 0;
+				return;
+			}
+
+			/*
+			 * Detach from the crosshair.
+			 */
+			ENTITY::DETACH_ENTITY(m_HeldEntity.GetHandle(), true, true);
+
+			/*
+			 * Throw in the direction the camera was facing
+			 * when Attack was released.
+			 */
+			applyForceToTarget(m_HeldEntity, 100000.0f);
+
+			m_HeldEntity = 0;
+		}
 
 		virtual void OnTick() override
 		{
-			// Update cooldown
-			if (m_PushCooldown > 0.0f)
+			auto playerPed = Self::GetPed().GetHandle();
+
+			PLAYER::DISABLE_PLAYER_FIRING(Self::GetPlayer().GetId(), true);
+
+			//PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_AIM, true);
+
+			PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_ATTACK, true);
+
+			bool isAimingHeld = PAD::IS_CONTROL_PRESSED(0, (int)NativeInputs::INPUT_AIM);
+
+			bool isShootingHeld = PAD::IS_DISABLED_CONTROL_PRESSED(0, (int)NativeInputs::INPUT_ATTACK);
+
+			bool isShootingReleased = PAD::IS_DISABLED_CONTROL_JUST_RELEASED(0, (int)NativeInputs::INPUT_ATTACK);
+
+			/*
+			 * ========================================================
+			 * ATTACK RELEASE
+			 * ========================================================
+			 */
+			if (m_WasShooting && isShootingReleased)
 			{
-				m_PushCooldown -= 0.016f;
-				if (m_PushCooldown < 0.0f)
-					m_PushCooldown = 0.0f;
+				releaseHeldEntity();
+
+				m_HasShownNotification = false;
 			}
 
-			// Check for activation when unarmed and aiming
-			if (IsPlayerUnarmed() && IsPlayerAiming() && IsPlayerShooting() && !m_IsPushing && m_PushCooldown <= 0.0f)
+			/*
+			 * ========================================================
+			 * AIM + ATTACK HELD
+			 * ========================================================
+			 */
+			if (isAimingHeld && isShootingHeld)
 			{
-				Entity aimedEntity;
-				// RDR2 native for getting the entity the player is aiming at
-				if (PLAYER::IS_PLAYER_FREE_AIMING_AT_ENTITY(PLAYER::PLAYER_ID(), &aimedEntity))
+				/*
+				 * Acquire an entity only once.
+				 */
+				if (m_HeldEntity.GetHandle() == 0)
 				{
-					if (ENTITY::IS_ENTITY_A_PED(aimedEntity) && !PED::IS_PED_A_PLAYER(aimedEntity))
+					auto entityID = 0;
+					PLAYER::SET_PLAYER_TARGETING_MODE(3);
+					PLAYER::GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(Self::GetPlayer().GetId(), &entityID);
+
+					if (entityID != 0 && ENTITY::DOES_ENTITY_EXIST(entityID) && ENTITY::IS_ENTITY_A_PED(entityID))
 					{
-						m_TargetEntity = aimedEntity;
-						m_IsCharging = true;
-						m_ChargeTime = 0.0f;
-						m_PushStrength = 0.0f;
-						// RDR2 sound native - using a generic interaction sound
-						AUDIO::PLAY_SOUND_FRONTEND("CABIN_WIND_01", 0x0CED0D77, true, 0);
+						m_HeldEntity = entityID;
+
+						m_HeldEntity.ForceControl();
+
+						if (!m_HasShownNotification)
+						{
+							Notifications::Show("Force Push", "Force Push grabbed entity: " + std::to_string(entityID), NotificationType::Success, 2000);
+
+							m_HasShownNotification = true;
+						}
 					}
 				}
+
+				/*
+				 * Keep the entity physically attached to the point
+				 * where the crosshair is currently pointing.
+				 */
+				if (m_HeldEntity.GetHandle() != 0 && ENTITY::DOES_ENTITY_EXIST(m_HeldEntity.GetHandle()))
+				{
+					attachEntityToCrosshair(m_HeldEntity);
+				}
 			}
 
-			// Handle charging
-			if (m_IsCharging)
+			/*
+			 * Safety cleanup.
+			 */
+			if (isShootingReleased && m_HeldEntity.GetHandle() != 0)
 			{
-				m_ChargeTime += 0.016f;
-				m_PushStrength = (m_ChargeTime / MAX_CHARGE_TIME) * BASE_PUSH_FORCE;
-				if (m_PushStrength > BASE_PUSH_FORCE * 2.0f)
-					m_PushStrength = BASE_PUSH_FORCE * 2.0f;
+				releaseHeldEntity();
 
-				if (m_TargetEntity != 0)
-				{
-					Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
-					DrawForceEffect(targetPos, m_PushStrength / (BASE_PUSH_FORCE * 2.0f));
-				}
-
-				if (IsPlayerShooting() || m_ChargeTime >= MAX_CHARGE_TIME)
-				{
-					if (m_TargetEntity != 0)
-						ProcessForcePush();
-					else
-						ResetPushState();
-				}
+				m_HasShownNotification = false;
 			}
 
-			// Animation update
-			if (m_IsPushing)
-			{
-				m_AnimationTick++;
-				PlayPushAnimation();
-
-				if (m_AnimationTick < MAX_ANIMATION_TICKS && m_TargetEntity != 0)
-				{
-					ApplyForceToTarget();
-					Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
-					DrawForceEffect(targetPos, 1.0f - (float)m_AnimationTick / MAX_ANIMATION_TICKS);
-				}
-				else
-				{
-					ResetPushState();
-				}
-			}
+			/*
+			 * Remember Attack state for the next tick.
+			 */
+			m_WasShooting = isShootingHeld;
 		}
 
 		virtual void OnDisable() override
 		{
-			ResetPushState();
-			// Clean up any lingering effects if needed
-			Ped playerPed = Self::GetPed();
-			if (playerPed)
+			/*
+			 * Don't leave an entity attached if the feature is
+			 * disabled while holding it.
+			 */
+			if (m_HeldEntity.GetHandle() != 0)
 			{
-				// Clear any tasks that might have been started
-				TASK::CLEAR_PED_TASKS(playerPed, false, false);
-			}
-		}
-
-	private:
-		bool IsPlayerUnarmed()
-		{
-			Ped playerPed = Self::GetPed();
-			if (!playerPed)
-				return false;
-
-			Hash currentWeapon;
-			// RDR2 native for getting current weapon
-			if (!WEAPON::GET_CURRENT_PED_WEAPON(playerPed, &currentWeapon, true, 0, false))
-				return true;
-
-			// Unarmed in RDR2 is typically 0x9D07F764 or just 0
-			return currentWeapon == 0 || currentWeapon == 0x9D07F764;
-		}
-
-		bool IsPlayerAiming()
-		{
-			// RDR2 native for checking if player is aiming
-			return PAD::IS_CONTROL_PRESSED(0, 0x07CE1E61) || // INPUT_AIM
-			    PAD::IS_CONTROL_ENABLED(0, 0x07CE1E61);
-		}
-
-		bool IsPlayerShooting()
-		{
-			// RDR2 uses PAD natives for controller input
-			return PAD::IS_CONTROL_JUST_PRESSED(0, 0x07B8BEAF) || // INPUT_ATTACK
-			    PAD::IS_CONTROL_JUST_PRESSED(0, 0x07CE1E61);      // INPUT_AIM (shoot while aiming)
-		}
-
-		void ProcessForcePush()
-		{
-			if (m_TargetEntity == 0 || !ENTITY::DOES_ENTITY_EXIST(m_TargetEntity))
-			{
-				ResetPushState();
-				return;
+				releaseHeldEntity();
 			}
 
-			Ped playerPed = Self::GetPed();
-			if (!playerPed)
-				return;
+			m_HeldEntity = 0;
+			m_WasShooting = false;
+			m_HasShownNotification = false;
 
-			Vector3 playerPos = ENTITY::GET_ENTITY_COORDS(playerPed, true, false);
-			Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
+			/*
+			 * Re-enable controls.
+			 */
+			PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_AIM, false);
 
-			m_PushDirection.x = targetPos.x - playerPos.x;
-			m_PushDirection.y = targetPos.y - playerPos.y;
-			m_PushDirection.z = (targetPos.z - playerPos.z) + 1.0f;
-
-			float length = sqrt(m_PushDirection.x * m_PushDirection.x + m_PushDirection.y * m_PushDirection.y
-			    + m_PushDirection.z * m_PushDirection.z);
-			if (length > 0.0f)
-			{
-				m_PushDirection.x /= length;
-				m_PushDirection.y /= length;
-				m_PushDirection.z /= length;
-			}
-
-			m_IsPushing = true;
-			m_IsCharging = false;
-			m_AnimationTick = 0;
-
-			// RDR2 sound native
-			AUDIO::PLAY_SOUND_FRONTEND("CABIN_WIND_01", 0x0CED0D77, true, 0);
-			ApplyForceToTarget();
-		}
-
-		void ApplyForceToTarget()
-		{
-			if (m_TargetEntity == 0 || !ENTITY::DOES_ENTITY_EXIST(m_TargetEntity))
-				return;
-
-			float forceMagnitude = m_PushStrength * (1.0f - (float)m_AnimationTick / MAX_ANIMATION_TICKS * 0.5f);
-
-			// RDR2 force application native - note the different parameter order
-			ENTITY::APPLY_FORCE_TO_ENTITY(m_TargetEntity, // Entity
-			    1,                                        // Force type (0=force, 1=impulse, 2=torque, 3=angular)
-			    m_PushDirection.x * forceMagnitude,       // X force
-			    m_PushDirection.y * forceMagnitude,       // Y force
-			    m_PushDirection.z * forceMagnitude,       // Z force
-			    0.0f,
-			    0.0f,
-			    0.0f,  // Offset
-			    0,     // Bone index
-			    false, // Is direction relative
-			    true,  // Ignore up vector
-			    false, // Is force relative
-			    false,
-			    false // P12, P13
-			);
-
-			// Add some ragdoll impulse for dramatic effect
-			ENTITY::APPLY_FORCE_TO_ENTITY(m_TargetEntity, 1, 0.0f, 0.0f, 0.0f, (rand() % 100 - 50) / 50.0f, (rand() % 100 - 50) / 50.0f, (rand() % 100 - 50) / 50.0f, 0, false, true, false, false, false);
-		}
-
-		void PlayPushAnimation()
-		{
-			Ped playerPed = Self::GetPed();
-			if (!playerPed)
-				return;
-
-			float progress = (float)m_AnimationTick / MAX_ANIMATION_TICKS;
-			float heading = ENTITY::GET_ENTITY_HEADING(playerPed);
-			float radHeading = heading * 3.14159f / 180.0f;
-
-			Vector3 handPos = ENTITY::GET_ENTITY_COORDS(playerPed, true, false);
-			handPos.x += sin(radHeading) * 0.8f;
-			handPos.y += cos(radHeading) * 0.8f;
-			handPos.z += 0.7f;
-
-			float extension = 0.3f + progress * 0.7f;
-			Vector3 extendedPos = handPos;
-			extendedPos.x += sin(radHeading) * extension;
-			extendedPos.y += cos(radHeading) * extension;
-
-			DrawForceEffect(extendedPos, 1.0f - progress * 0.5f);
-
-			if (m_TargetEntity != 0)
-			{
-				Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true, false);
-
-				// RDR2 drawing native
-				CFX::DRAW_LINE(extendedPos.x, extendedPos.y, extendedPos.z, targetPos.x, targetPos.y, targetPos.z, 100, 150, 255, 255);
-
-				for (int i = 0; i < 10; i++)
-				{
-					float t = (float)i / 10.0f;
-					Vector3 particlePos = {extendedPos.x + (targetPos.x - extendedPos.x) * t,
-					    extendedPos.y + (targetPos.y - extendedPos.y) * t,
-					    extendedPos.z + (targetPos.z - extendedPos.z) * t + (float)(rand() % 20 - 10) / 100.0f};
-					DrawForceEffect(particlePos, 0.3f);
-				}
-			}
-
-			// RDR2 camera shake native
-			if (progress < 0.3f)
-			{
-				CAM::SHAKE_GAMEPLAY_CAM("HAND_SHAKE", 0.3f * (1.0f - progress / 0.3f));
-			}
-		}
-
-		void DrawForceEffect(Vector3 position, float intensity)
-		{
-			// RDR2 marker drawing - similar to GTA but verify the parameters
-			CFX::DRAW_MARKER(28, // Sphere marker
-			    position.x,
-			    position.y,
-			    position.z,
-			    0.0f,
-			    0.0f,
-			    0.0f,
-			    0.0f,
-			    0.0f,
-			    0.0f,
-			    0.5f + intensity * 0.5f,
-			    0.5f + intensity * 0.5f,
-			    0.5f + intensity * 0.5f,
-			    100,
-			    150,
-			    255,
-			    100 * intensity,
-			    false,
-			    false,
-			    2,
-			    false,
-			    false,
-			    false,
-			    false);
-
-			// Sparkle particles
-			for (int i = 0; i < 5 * intensity; i++)
-			{
-				Vector3 sparklePos = {position.x + (float)(rand() % 100 - 50) / 100.0f,
-				    position.y + (float)(rand() % 100 - 50) / 100.0f,
-				    position.z + (float)(rand() % 100 - 50) / 100.0f};
-				CFX::DRAW_MARKER(28, sparklePos.x, sparklePos.y, sparklePos.z, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.1f, 0.1f, 255, 255, 255, 150 * intensity, false, false, 2, false, false, false, false);
-			}
-		}
-
-		void ResetPushState()
-		{
-			m_IsPushing = false;
-			m_IsCharging = false;
-			m_ChargeTime = 0.0f;
-			m_PushStrength = 0.0f;
-			m_TargetEntity = 0;
-			m_AnimationTick = 0;
-			m_PushCooldown = COOLDOWN_TIME;
-			// RDR2 camera shake stop
-			CAM::STOP_GAMEPLAY_CAM_SHAKING(false);
+			PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_ATTACK, false);
 		}
 	};
 
-	// Command registration - follows the same pattern as godmode
-	static ForcePush _ForcePush{"forcepush", "Force Push", "Push enemies with the power of the Force when unarmed and aiming"};
+	static ForcePush _ForcePush{"forcepush", "Force Push", "Grab enemies at the crosshair and throw them when attack is released"};
 }
