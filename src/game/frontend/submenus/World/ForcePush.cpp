@@ -3,9 +3,14 @@
 #include "core/commands/LoopedCommand.hpp"
 #include "game/backend/Self.hpp"
 #include "game/backend/Weapons.hpp"
-#include "game/frontend/items/SimpleItem.hpp"
-#include "natives.hpp"
-#include "util/helpers.hpp"
+#include "game/backend/NativeHooks.hpp"
+#include "game/backend/Players.hpp"
+#include "game/backend/ScriptMgr.hpp"
+#include "game/rdr/Enums.hpp"
+#include "game/rdr/Natives.hpp"
+#include "game/rdr/ScriptGlobal.hpp"
+#include "game/rdr/Scripts.hpp"
+#include "core/frontend/Notifications.hpp"
 
 #include <cmath>
 
@@ -132,8 +137,8 @@ namespace YimMenu::Features
 
 		bool IsPlayerShooting()
 		{
-			return CONTROLS::IS_CONTROL_JUST_PRESSED(0, 0x07CE1E61) || // INPUT_ATTACK
-			    CONTROLS::IS_CONTROL_JUST_PRESSED(0, 0x07B8BEAF);      // INPUT_ATTACK2
+			return PAD::IS_CONTROL_JUST_PRESSED(0, 0x07CE1E61) || // INPUT_ATTACK
+			    PAD::IS_CONTROL_JUST_PRESSED(0, 0x07B8BEAF);      // INPUT_ATTACK2
 		}
 
 		void ProcessForcePush()
@@ -226,7 +231,7 @@ namespace YimMenu::Features
 			{
 				Vector3 targetPos = ENTITY::GET_ENTITY_COORDS(m_TargetEntity, true);
 
-				GRAPHICS::DRAW_LINE(extendedPos.x, extendedPos.y, extendedPos.z, targetPos.x, targetPos.y, targetPos.z, 100, 150, 255, 255);
+				CFX::DRAW_LINE(extendedPos.x, extendedPos.y, extendedPos.z, targetPos.x, targetPos.y, targetPos.z, 100, 150, 255, 255);
 
 				for (int i = 0; i < 10; i++)
 				{
@@ -246,7 +251,7 @@ namespace YimMenu::Features
 
 		void DrawForceEffect(Vector3 position, float intensity)
 		{
-			GRAPHICS::DRAW_MARKER(28, // Sphere marker
+			CFX::DRAW_MARKER(28, // Sphere marker
 			    position.x,
 			    position.y,
 			    position.z,
@@ -276,7 +281,7 @@ namespace YimMenu::Features
 				Vector3 sparklePos = {position.x + (float)(rand() % 100 - 50) / 100.0f,
 				    position.y + (float)(rand() % 100 - 50) / 100.0f,
 				    position.z + (float)(rand() % 100 - 50) / 100.0f};
-				GRAPHICS::DRAW_MARKER(28, sparklePos.x, sparklePos.y, sparklePos.z, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.1f, 0.1f, 255, 255, 255, 150 * intensity, false, false, 2, false, false, false, false);
+				CFX::DRAW_MARKER(28, sparklePos.x, sparklePos.y, sparklePos.z, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.1f, 0.1f, 255, 255, 255, 150 * intensity, false, false, 2, false, false, false, false);
 			}
 		}
 
