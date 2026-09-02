@@ -2,7 +2,6 @@
 #pragma once
 #include "core/commands/LoopedCommand.hpp"
 #include "game/backend/Self.hpp"
-#include "game/backend/Weapons.hpp"
 #include "game/backend/NativeHooks.hpp"
 #include "game/backend/Players.hpp"
 #include "game/backend/ScriptMgr.hpp"
