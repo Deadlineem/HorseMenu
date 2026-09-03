@@ -23,20 +23,8 @@ namespace YimMenu::Features
 		bool m_WasShooting = false;
 		bool m_HasShownNotification = false;
 
-		/*
-		 * Distance from the camera at which the entity is held.
-		 *
-		 * This is the point the crosshair is effectively projecting
-		 * into the world.
-		 */
 		static constexpr float HOLD_DISTANCE = 10.0f;
 
-		/*
-		 * Convert camera rotation into a forward direction.
-		 *
-		 * X = pitch
-		 * Z = yaw
-		 */
 		Vector3 getCameraDirection()
 		{
 			Vector3 cameraRotation = CAM::GET_GAMEPLAY_CAM_ROT(0);
@@ -53,27 +41,21 @@ namespace YimMenu::Features
 
 		Vector3 getCrosshairCoords(float distance)
 		{
-			// Get absolute camera position (world space)
 			Vector3 cameraCoords = CAM::GET_GAMEPLAY_CAM_COORD();
-
-			// Get absolute camera rotation (world space)
-			// This is exactly what getCameraDirection uses
 			Vector3 cameraRotation = CAM::GET_GAMEPLAY_CAM_ROT(0);
 
-			// Convert to radians (RDR2 uses degrees)
 			float pitch = cameraRotation.x * 0.0174532924f;
 			float yaw = cameraRotation.z * 0.0174532924f;
 
-			// Calculate direction using RDR2's world coordinate system
 			float cosPitch = std::cos(pitch);
 			float sinPitch = std::sin(pitch);
 			float cosYaw = std::cos(yaw);
 			float sinYaw = std::sin(yaw);
 
 			Vector3 direction;
-			direction.x = -sinYaw * cosPitch; // East/West
-			direction.y = cosYaw * cosPitch;  // North/South
-			direction.z = sinPitch;           // Up/Down
+			direction.x = -sinYaw * cosPitch;
+			direction.y = cosYaw * cosPitch;
+			direction.z = sinPitch;
 
 			Vector3 targetPos = {cameraCoords.x + direction.x * distance,
 			    cameraCoords.y + direction.y * distance,
@@ -82,19 +64,10 @@ namespace YimMenu::Features
 			return targetPos;
 		}
 
-		/*
-		 * Get the exact direction the active camera is facing.
-		 *
-		 * This is used when the entity is thrown.
-		 */
 		Vector3 getThrowDirection()
 		{
 			return getCameraDirection();
 
-			/*
-			 * Fallback to gameplay camera rotation if there isn't
-			 * a rendering camera handle.
-			 */
 			Vector3 rotation = CAM::GET_GAMEPLAY_CAM_ROT(0);
 
 			float pitch = rotation.x * 0.0174532924f;
@@ -106,10 +79,79 @@ namespace YimMenu::Features
 			return {-std::sin(yaw) * cosPitch, std::cos(yaw) * cosPitch, std::sin(pitch)};
 		}
 
-		/*
-		 * Attach the entity directly to the world coordinates
-		 * projected from the camera/crosshair.
-		 */
+		void setPedFacingCamera(Entity target)
+		{
+			Ped npc = ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle());
+
+			Vector3 playerPos = Self::GetPed().GetPosition();
+			Vector3 npcPos = ENTITY::GET_ENTITY_COORDS(npc.GetHandle(), true, true);
+
+			float dx = playerPos.x - npcPos.x;
+			float dy = playerPos.y - npcPos.y;
+
+			float heading = (std::atan2(dy, dx) * 57.2957795f) - 90.0f;
+
+			if (heading < 0.0f)
+				heading += 360.0f;
+			if (heading >= 360.0f)
+				heading -= 360.0f;
+
+			ENTITY::SET_ENTITY_HEADING(npc.GetHandle(), heading);
+		}
+
+		void playAnimation(Entity target)
+		{
+			if (target.GetHandle() == 0 || !ENTITY::DOES_ENTITY_EXIST(target.GetHandle()))
+			{
+				return;
+			}
+
+			Ped npc = ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle());
+
+			if (npc.GetHandle() == 0 || !PED::IS_PED_HUMAN(npc.GetHandle()))
+			{
+				return;
+			}
+
+			target.ForceControl();
+			npc.ForceControl();
+
+			ENTITY::FREEZE_ENTITY_POSITION(npc.GetHandle(), true);
+			PED::SET_PED_KEEP_TASK(npc.GetHandle(), true);
+			PED::SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(npc.GetHandle(), true);
+			PED::SET_PED_CAN_PLAY_AMBIENT_ANIMS(npc.GetHandle(), false);
+			PED::SET_PED_CAN_PLAY_AMBIENT_BASE_ANIMS(npc.GetHandle(), false);
+			WEAPON::REMOVE_ALL_PED_WEAPONS(npc.GetHandle(), true, true);
+			PED::SET_PED_MAX_MOVE_BLEND_RATIO(npc.GetHandle(), 0.0f);
+			PED::SET_PED_MOVE_RATE_OVERRIDE(npc.GetHandle(), 0.0f);
+			PED::SET_PED_CAN_RAGDOLL(npc.GetHandle(), false);
+			TASK::CLEAR_PED_TASKS_IMMEDIATELY(npc.GetHandle(), true, true);
+
+			const char* animDict = "script_story@tre2@ig@ig2_dutch_v_hunter";
+			const char* animName = "choke_loop_alt_dutch";
+
+			STREAMING::REQUEST_ANIM_DICT(animDict);
+
+			int timeout = 0;
+			while (!STREAMING::HAS_ANIM_DICT_LOADED(animDict) && timeout < 100)
+			{
+				ScriptMgr::Yield(0ms);
+				timeout++;
+			}
+
+			if (STREAMING::HAS_ANIM_DICT_LOADED(animDict))
+			{
+				TASK::CLEAR_PED_TASKS_IMMEDIATELY(npc.GetHandle(), true, true);
+
+				TASK::TASK_PLAY_ANIM(npc.GetHandle(), animDict, animName, 8.0f, -8.0f, -1, 1, 0.0f, false, 0, false, "Default", false);
+
+				PED::SET_PED_CAN_PLAY_AMBIENT_ANIMS(npc.GetHandle(), false);
+				PED::SET_PED_CAN_PLAY_AMBIENT_BASE_ANIMS(npc.GetHandle(), false);
+
+				AUDIO::PLAY_PAIN(npc.GetHandle(), 12, 0.0f, false, true);
+			}
+		}
+
 		void attachEntityToCrosshair(Entity target)
 		{
 			if (target.GetHandle() == 0 || !ENTITY::DOES_ENTITY_EXIST(target.GetHandle()))
@@ -119,26 +161,40 @@ namespace YimMenu::Features
 
 			target.ForceControl();
 
-			/*
-			 * Calculate the world-space point at the crosshair.
-			 */
 			Vector3 coords = getCrosshairCoords(HOLD_DISTANCE);
 
-			coords.z -= 0.3f;
+			coords.z -= 1.3f;
 
 			Ped npc = ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle());
-			TASK::CLEAR_PED_TASKS_IMMEDIATELY(ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle()), true, true);
 
-			/*
-			 * Attach directly to those WORLD coordinates.
-			 */
-			ENTITY::SET_ENTITY_COORDS(target.GetHandle(), coords.x, coords.y, coords.z, false, false, false, false);
+			ENTITY::SET_ENTITY_COORDS(target.GetHandle(), coords.x, coords.y, coords.z, false, true, false, false);
 		}
 
-		/*
-		 * This is your original force behavior, but the directional
-		 * portion now comes from the camera/crosshair.
-		 */
+		void resetPedState(Entity target)
+		{
+			if (target.GetHandle() == 0 || !ENTITY::DOES_ENTITY_EXIST(target.GetHandle()))
+			{
+				return;
+			}
+
+			Ped npc = ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle());
+
+			if (npc.GetHandle() == 0)
+			{
+				return;
+			}
+
+			ENTITY::FREEZE_ENTITY_POSITION(npc.GetHandle(), false);
+			PED::SET_PED_KEEP_TASK(npc.GetHandle(), false);
+			PED::SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(npc.GetHandle(), false);
+			PED::SET_PED_CAN_PLAY_AMBIENT_ANIMS(npc.GetHandle(), true);
+			PED::SET_PED_CAN_PLAY_AMBIENT_BASE_ANIMS(npc.GetHandle(), true);
+			PED::SET_PED_MAX_MOVE_BLEND_RATIO(npc.GetHandle(), 1.0f);
+			PED::SET_PED_MOVE_RATE_OVERRIDE(npc.GetHandle(), 1.0f);
+			TASK::CLEAR_PED_TASKS_IMMEDIATELY(npc.GetHandle(), true, true);
+			PED::SET_PED_CAN_RAGDOLL(npc.GetHandle(), true);
+		}
+
 		void applyForceToTarget(Entity target, float scale)
 		{
 			if (target.GetHandle() == 0 || !ENTITY::DOES_ENTITY_EXIST(target.GetHandle()))
@@ -148,40 +204,22 @@ namespace YimMenu::Features
 
 			Ped npc = ENTITY::GET_PED_INDEX_FROM_ENTITY_INDEX(target.GetHandle());
 
+			resetPedState(target);
+
 			target.ForceControl();
 
-			// Get the direction you are looking
 			Vector3 direction = getThrowDirection();
 
-			// Scale the direction
-			float forceScale = scale * 2.5f; // Keep your scale
+			float forceScale = scale * 2.5f;
 			Vector3 scaledDir = {direction.x * forceScale, direction.y * forceScale, direction.z * forceScale};
 
-			/*
-     * CRITICAL FIX #1: Reset the Ragdoll BEFORE throwing.
-     * This prevents the game from misinterpreting your WORLD vector 
-     * as a LOCAL vector inside the current ragdoll rotation.
-     */
-			PED::SET_PED_TO_RAGDOLL(npc.GetHandle(), 1, 1, 0, false, false, "DraggedByCart"); // Short, clean ragdoll timer
+			PED::SET_PED_TO_RAGDOLL(npc.GetHandle(), 1, 1, 0, false, false, "DraggedByCart");
 
-			/*
-     * CRITICAL FIX #2: Use SET_ENTITY_VELOCITY.
-     * This native applies a pure world-space velocity. 
-     * It completely ignores the ped's internal physics rotation, 
-     * so the ped will ALWAYS fly exactly where you are looking.
-     */
 			ENTITY::SET_ENTITY_VELOCITY(target.GetHandle(), scaledDir.x, scaledDir.y, scaledDir.z);
 
-			/*
-     * CRITICAL FIX #3: Apply upward force separately for the "launch" feel.
-     * This bypasses the local vector issue completely.
-     */
 			ENTITY::APPLY_FORCE_TO_ENTITY(target.GetHandle(), 1, 0.0f, 0.0f, 2500.0f, 0.0f, 0.0f, 0.0f, 0, false, true, false, false, false);
 		}
 
-		/*
-		 * Release the entity and throw it.
-		 */
 		void releaseHeldEntity()
 		{
 			if (m_HeldEntity.GetHandle() == 0)
@@ -195,15 +233,8 @@ namespace YimMenu::Features
 				return;
 			}
 
-			/*
-			 * Detach from the crosshair.
-			 */
 			ENTITY::DETACH_ENTITY(m_HeldEntity.GetHandle(), true, true);
 
-			/*
-			 * Throw in the direction the camera was facing
-			 * when Attack was released.
-			 */
 			applyForceToTarget(m_HeldEntity, 100000.0f);
 
 			m_HeldEntity = 0;
@@ -215,7 +246,7 @@ namespace YimMenu::Features
 
 			PLAYER::DISABLE_PLAYER_FIRING(Self::GetPlayer().GetId(), true);
 
-			//PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_AIM, true);
+			WEAPON::_REMOVE_ALL_PED_AMMO(Self::GetPed().GetHandle());
 
 			PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_ATTACK, true);
 
@@ -225,11 +256,6 @@ namespace YimMenu::Features
 
 			bool isShootingReleased = PAD::IS_DISABLED_CONTROL_JUST_RELEASED(0, (int)NativeInputs::INPUT_ATTACK);
 
-			/*
-			 * ========================================================
-			 * ATTACK RELEASE
-			 * ========================================================
-			 */
 			if (m_WasShooting && isShootingReleased)
 			{
 				releaseHeldEntity();
@@ -237,16 +263,8 @@ namespace YimMenu::Features
 				m_HasShownNotification = false;
 			}
 
-			/*
-			 * ========================================================
-			 * AIM + ATTACK HELD
-			 * ========================================================
-			 */
 			if (isAimingHeld && isShootingHeld)
 			{
-				/*
-				 * Acquire an entity only once.
-				 */
 				if (m_HeldEntity.GetHandle() == 0)
 				{
 					auto entityID = 0;
@@ -259,6 +277,10 @@ namespace YimMenu::Features
 
 						m_HeldEntity.ForceControl();
 
+						setPedFacingCamera(m_HeldEntity);
+
+						playAnimation(m_HeldEntity);
+
 						if (!m_HasShownNotification)
 						{
 							Notifications::Show("Force Push", "Force Push grabbed entity: " + std::to_string(entityID), NotificationType::Success, 2000);
@@ -268,19 +290,13 @@ namespace YimMenu::Features
 					}
 				}
 
-				/*
-				 * Keep the entity physically attached to the point
-				 * where the crosshair is currently pointing.
-				 */
 				if (m_HeldEntity.GetHandle() != 0 && ENTITY::DOES_ENTITY_EXIST(m_HeldEntity.GetHandle()))
 				{
 					attachEntityToCrosshair(m_HeldEntity);
+					setPedFacingCamera(m_HeldEntity);
 				}
 			}
 
-			/*
-			 * Safety cleanup.
-			 */
 			if (isShootingReleased && m_HeldEntity.GetHandle() != 0)
 			{
 				releaseHeldEntity();
@@ -288,18 +304,11 @@ namespace YimMenu::Features
 				m_HasShownNotification = false;
 			}
 
-			/*
-			 * Remember Attack state for the next tick.
-			 */
 			m_WasShooting = isShootingHeld;
 		}
 
 		virtual void OnDisable() override
 		{
-			/*
-			 * Don't leave an entity attached if the feature is
-			 * disabled while holding it.
-			 */
 			if (m_HeldEntity.GetHandle() != 0)
 			{
 				releaseHeldEntity();
@@ -309,11 +318,7 @@ namespace YimMenu::Features
 			m_WasShooting = false;
 			m_HasShownNotification = false;
 
-			/*
-			 * Re-enable controls.
-			 */
 			PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_AIM, false);
-
 			PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_ATTACK, false);
 		}
 	};
