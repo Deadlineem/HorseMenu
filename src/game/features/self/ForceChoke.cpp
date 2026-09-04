@@ -241,8 +241,6 @@ namespace YimMenu::Features
 
 		virtual void OnTick() override
 		{
-			FiberPool::Push([this]()
-			{
 				auto playerPed = Self::GetPed().GetHandle();
 
 				PLAYER::DISABLE_PLAYER_FIRING(Self::GetPlayer().GetId(), true);
@@ -303,8 +301,6 @@ namespace YimMenu::Features
 				}
 
 				m_WasShooting = isShootingHeld;
-				ScriptMgr::Yield(0ms);
-			});
 		}
 
 		virtual void OnDisable() override
@@ -323,5 +319,5 @@ namespace YimMenu::Features
 		}
 	};
 
-	static ForceChoke _ForceChoke{"forcechoke", "Force Choke/Throw", "Aim + Shoot - Grabs Peds, choking them until you release the shoot button, then throws them"};
+	static ForceChoke _ForceChoke{"forcechoke", "Force Choke", "Grabs Peds while holding aim and shoot buttons choking them until you release the shoot button then throws them"};
 }

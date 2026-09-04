@@ -4,9 +4,7 @@
 #include "game/rdr/Natives.hpp"
 #include "core/commands/Commands.hpp"
 #include "core/commands/BoolCommand.hpp"
-#include "game/backend/FiberPool.hpp"
 #include "game/backend/Players.hpp"
-#include "game/backend/Self.hpp"
 
 namespace YimMenu::Features
 {

@@ -29,8 +29,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "${imgui_SOURCE_DIR}"
     "${minhook_SOURCE_DIR}/include"    
     "${minhook_SOURCE_DIR}/src/hde"    
-    "${RDR-Classes_SOURCE_DIR}"
-    "${vulkan_SOURCE_DIR}/include"
+    "${RDR-Classes_SOURCE_DIR}" 
+    "${vulkan_SOURCE_DIR}/include" 
 ) 
 
 message(STATUS "Setting up linked libraries")

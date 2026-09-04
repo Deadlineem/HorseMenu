@@ -3,8 +3,6 @@
 #include "World/PedSpawner.hpp"
 #include "World/Shows.hpp"
 #include "World/Train.hpp"
-#include "World/TrainSpeed.cpp"
-#include "World/PedsRiot.cpp"
 #include "World/VehicleSpawner.hpp"
 #include "World/ObjectSpawner.hpp"
 #include "World/Weather.hpp"
@@ -18,7 +16,6 @@
 #include "game/rdr/Natives.hpp"
 #include "game/rdr/Pools.hpp"
 #include "core/commands/BoolCommand.hpp"
-#include <game/rdr/Natives.hpp>
 #include <rage/fwBasePool.hpp>
 #include <rage/pools.hpp>
 
