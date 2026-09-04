@@ -15,15 +15,17 @@
 
 namespace YimMenu::Features
 {
-	class ForcePush : public LoopedCommand
+	class ForceChoke : public LoopedCommand
 	{
 		using LoopedCommand::LoopedCommand;
 
 		Entity m_HeldEntity = 0;
 		bool m_WasShooting = false;
 		bool m_HasShownNotification = false;
+		bool m_SoundLoaded = false;
+		std::string m_SoundSetRef = "";
 
-		static constexpr float HOLD_DISTANCE = 10.0f;
+		static constexpr float HOLD_DISTANCE = 5.0f;
 
 		Vector3 getCameraDirection()
 		{
@@ -147,8 +149,6 @@ namespace YimMenu::Features
 
 				PED::SET_PED_CAN_PLAY_AMBIENT_ANIMS(npc.GetHandle(), false);
 				PED::SET_PED_CAN_PLAY_AMBIENT_BASE_ANIMS(npc.GetHandle(), false);
-
-				AUDIO::PLAY_PAIN(npc.GetHandle(), 12, 0.0f, false, true);
 			}
 		}
 
@@ -242,69 +242,70 @@ namespace YimMenu::Features
 
 		virtual void OnTick() override
 		{
-			auto playerPed = Self::GetPed().GetHandle();
-
-			PLAYER::DISABLE_PLAYER_FIRING(Self::GetPlayer().GetId(), true);
-
-			WEAPON::_REMOVE_ALL_PED_AMMO(Self::GetPed().GetHandle());
-
-			PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_ATTACK, true);
-
-			bool isAimingHeld = PAD::IS_CONTROL_PRESSED(0, (int)NativeInputs::INPUT_AIM);
-
-			bool isShootingHeld = PAD::IS_DISABLED_CONTROL_PRESSED(0, (int)NativeInputs::INPUT_ATTACK);
-
-			bool isShootingReleased = PAD::IS_DISABLED_CONTROL_JUST_RELEASED(0, (int)NativeInputs::INPUT_ATTACK);
-
-			if (m_WasShooting && isShootingReleased)
+			FiberPool::Push([this]()
 			{
-				releaseHeldEntity();
+				auto playerPed = Self::GetPed().GetHandle();
 
-				m_HasShownNotification = false;
-			}
+				PLAYER::DISABLE_PLAYER_FIRING(Self::GetPlayer().GetId(), true);
 
-			if (isAimingHeld && isShootingHeld)
-			{
-				if (m_HeldEntity.GetHandle() == 0)
+				PAD::DISABLE_CONTROL_ACTION(0, (int)NativeInputs::INPUT_ATTACK, true);
+
+				bool isAimingHeld = PAD::IS_CONTROL_PRESSED(0, (int)NativeInputs::INPUT_AIM);
+
+				bool isShootingHeld = PAD::IS_DISABLED_CONTROL_PRESSED(0, (int)NativeInputs::INPUT_ATTACK);
+
+				bool isShootingReleased = PAD::IS_DISABLED_CONTROL_JUST_RELEASED(0, (int)NativeInputs::INPUT_ATTACK);
+
+				if (m_WasShooting && isShootingReleased)
 				{
-					auto entityID = 0;
-					PLAYER::SET_PLAYER_TARGETING_MODE(3);
-					PLAYER::GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(Self::GetPlayer().GetId(), &entityID);
+					releaseHeldEntity();
 
-					if (entityID != 0 && ENTITY::DOES_ENTITY_EXIST(entityID) && ENTITY::IS_ENTITY_A_PED(entityID))
+					m_HasShownNotification = false;
+				}
+
+				if (isAimingHeld && isShootingHeld)
+				{
+					PLAYER::DISABLE_PLAYER_FIRING(Self::GetPlayer().GetId(), true);
+
+					if (m_HeldEntity.GetHandle() == 0)
 					{
-						m_HeldEntity = entityID;
+						auto entityID = 0;
+						PLAYER::SET_PLAYER_TARGETING_MODE(3);
+						PLAYER::GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(Self::GetPlayer().GetId(), &entityID);
 
-						m_HeldEntity.ForceControl();
-
-						setPedFacingCamera(m_HeldEntity);
-
-						playAnimation(m_HeldEntity);
-
-						if (!m_HasShownNotification)
+						if (entityID != 0 && ENTITY::DOES_ENTITY_EXIST(entityID) && ENTITY::IS_ENTITY_A_PED(entityID))
 						{
-							Notifications::Show("Force Push", "Force Push grabbed entity: " + std::to_string(entityID), NotificationType::Success, 2000);
+							m_HeldEntity = entityID;
+							m_HeldEntity.ForceControl();
 
-							m_HasShownNotification = true;
+							setPedFacingCamera(m_HeldEntity);
+							playAnimation(m_HeldEntity);
+
+							if (!m_HasShownNotification)
+							{
+								Notifications::Show("Force Push", "Force Push grabbed entity: " + std::to_string(entityID), NotificationType::Success, 2000);
+
+								m_HasShownNotification = true;
+							}
 						}
+					}
+
+					if (m_HeldEntity.GetHandle() != 0 && ENTITY::DOES_ENTITY_EXIST(m_HeldEntity.GetHandle()))
+					{
+						attachEntityToCrosshair(m_HeldEntity);
+						setPedFacingCamera(m_HeldEntity);
 					}
 				}
 
-				if (m_HeldEntity.GetHandle() != 0 && ENTITY::DOES_ENTITY_EXIST(m_HeldEntity.GetHandle()))
+				if (isShootingReleased && m_HeldEntity.GetHandle() != 0)
 				{
-					attachEntityToCrosshair(m_HeldEntity);
-					setPedFacingCamera(m_HeldEntity);
+					releaseHeldEntity();
+					m_HasShownNotification = false;
 				}
-			}
 
-			if (isShootingReleased && m_HeldEntity.GetHandle() != 0)
-			{
-				releaseHeldEntity();
-
-				m_HasShownNotification = false;
-			}
-
-			m_WasShooting = isShootingHeld;
+				m_WasShooting = isShootingHeld;
+				ScriptMgr::Yield(0ms);
+			});
 		}
 
 		virtual void OnDisable() override
@@ -323,5 +324,5 @@ namespace YimMenu::Features
 		}
 	};
 
-	static ForcePush _ForcePush{"forcepush", "Force Push", "Grab enemies at the crosshair and throw them when attack is released"};
+	static ForceChoke _ForceChoke{"forcechoke", "Force Choke/Throw", "Aim + Shoot - Grabs Peds, choking them until you release the shoot button, then throws them"};
 }

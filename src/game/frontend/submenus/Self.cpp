@@ -193,6 +193,7 @@ namespace YimMenu::Submenus
 		weaponsGlobalsGroup->AddItem(std::make_shared<BoolCommandItem>("nospread"_J));
 		weaponsGlobalsGroup->AddItem(std::make_shared<BoolCommandItem>("autocock"_J));
 		weaponsGlobalsGroup->AddItem(std::make_shared<BoolCommandItem>("keepgunsclean"_J));
+		weaponsGlobalsGroup->AddItem(std::make_shared<BoolCommandItem>("forcechoke"_J));
 
 		weapons->AddItem(weaponsGlobalsGroup);
 		AddCategory(std::move(weapons));

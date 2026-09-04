@@ -5,7 +5,6 @@
 #include "World/Train.hpp"
 #include "World/TrainSpeed.cpp"
 #include "World/PedsRiot.cpp"
-#include "World/ForcePush.cpp"
 #include "World/VehicleSpawner.hpp"
 #include "World/ObjectSpawner.hpp"
 #include "World/Weather.hpp"
@@ -193,7 +192,6 @@ namespace YimMenu::Submenus
 		main->AddItem(std::make_shared<ConditionalItem>("pedsriot"_J, std::make_shared<BoolCommandItem>("pedsriotgodmode"_J)));
 		main->AddItem(std::make_shared<ConditionalItem>("pedsriot"_J, std::make_shared<BoolCommandItem>("pedsriotonlyanimals"_J)));
 		main->AddItem(std::make_shared<ConditionalItem>("pedsriot"_J, std::make_shared<BoolCommandItem>("pedsriotonlypeds"_J)));
-		main->AddItem(std::make_shared<BoolCommandItem>("forcepush"_J));
 
 		shows->AddItem(std::make_shared<ImGuiItem>([] {
 			RenderShowsMenu();
