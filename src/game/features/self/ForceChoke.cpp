@@ -1,4 +1,3 @@
-#pragma once
 #include "core/commands/LoopedCommand.hpp"
 #include "core/frontend/Notifications.hpp"
 #include "game/backend/NativeHooks.hpp"
