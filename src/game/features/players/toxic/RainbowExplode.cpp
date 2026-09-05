@@ -21,30 +21,44 @@ namespace YimMenu::Features
 			if (!player.IsValid())
 				return;
 
-			// Toggle the state
-			bool newState = !_RainbowExplosionsActive.GetState();
-			_RainbowExplosionsActive.SetState(newState);
+			_RainbowExplosionsActive.SetState(true);
 
-			if (newState)
+			for (int i = 0; i < 2500; i++)
 			{
-				_RainbowExplosionsTarget = player;
-				// Start the loop in a separate thread
-					if (!_RainbowExplosionsActive.GetState())
+				if (!_RainbowExplosionsActive.GetState())
+				{
+					_RainbowExplosionsActive.SetState(false);
+					return;
+				}
+
+				while (PED::IS_PED_DEAD_OR_DYING(player.GetPed().GetHandle(), true)
+				    || PLAYER::IS_PLAYER_DEAD(player.GetPed().GetHandle()))
+				{
+					if (!_RainbowExplosionsActive.GetState() || !player.IsValid())
 					{
 						_RainbowExplosionsActive.SetState(false);
 						return;
 					}
 
-					if (!player.IsValid() || PED::IS_PED_DEAD_OR_DYING(player.GetPed().GetHandle(), true)
-					    || PLAYER::IS_PLAYER_DEAD(player.GetPed().GetHandle()))
+					ScriptMgr::Yield(500ms);
+
+					if (!player.IsValid())
 					{
 						_RainbowExplosionsActive.SetState(false);
 						return;
 					}
+				}
 
+				if (!_RainbowExplosionsActive.GetState())
+				{
+					_RainbowExplosionsActive.SetState(false);
+					return;
+				}
+
+				if (!PLAYER::IS_PLAYER_DEAD(player.GetPed().GetHandle()) || !PED::IS_PED_DEAD_OR_DYING(player.GetPed().GetHandle(), true))
+				{
 					auto playerCoords = player.GetPed().GetPosition();
 
-					// Cycle through explosion types
 					static int explosionIndex = 0;
 					FIRE::ADD_EXPLOSION(playerCoords.x, playerCoords.y, playerCoords.z, explosionIndex, 5.0f, true, false, 5.0f);
 
@@ -52,12 +66,10 @@ namespace YimMenu::Features
 					if (explosionIndex > 36) // MAX_EXPLOSION_TYPES
 						explosionIndex = 0;
 
-					ScriptMgr::Yield(100ms);
+					ScriptMgr::Yield(50ms);
+				}
 			}
-			else
-			{
-				_RainbowExplosionsActive.SetState(false);
-			}
+			_RainbowExplosionsActive.SetState(false);
 		}
 	};
 

@@ -80,7 +80,7 @@ namespace YimMenu::Features
 					// Player is alive, trigger explosion
 					auto playerCoords = player.GetPed().GetPosition();
 					FIRE::ADD_EXPLOSION(playerCoords.x, playerCoords.y, playerCoords.z, (int)ExplosionTypes::EXP_TAG_GRENADE, 10.0f, true, false, 5.0f);
-					ScriptMgr::Yield(200ms); // Wait a bit between explosions to give player time to react
+					ScriptMgr::Yield(50ms); // Wait a bit between explosions to give player time to react
 				}
 			}
 

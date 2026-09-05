@@ -34,7 +34,7 @@ namespace YimMenu::Features
 
 			_LightningLoopActive.SetState(true);
 
-			for (int i = 0; i < 250; i++)
+			for (int i = 0; i < 2500; i++)
 			{
 				if (!_LightningLoopActive.GetState())
 				{
@@ -71,7 +71,7 @@ namespace YimMenu::Features
 					auto playerCoords = player.GetPed().GetPosition();
 					
 					FIRE::ADD_EXPLOSION(playerCoords.x, playerCoords.y, playerCoords.z, (int)ExplosionTypes::EXP_TAG_LIGHTNING_STRIKE, 5.0f, true, false, 5.0f);
-					ScriptMgr::Yield(150ms);
+					ScriptMgr::Yield(50ms);
 				}
 			}
 			_LightningLoopActive.SetState(false);
