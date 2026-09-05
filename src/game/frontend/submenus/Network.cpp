@@ -102,12 +102,8 @@ namespace YimMenu::Submenus
 
 		sessionSwitcherGroup->AddItem(std::make_shared<Vector3CommandItem>("newsessionpos"_J));
 		sessionSwitcherGroup->AddItem(std::make_shared<BoolCommandItem>("newsessionposse"_J));
+		sessionSwitcherGroup->AddItem(std::make_shared<BoolCommandItem>("newsessionprivate"_J));
 		sessionSwitcherGroup->AddItem(std::make_shared<CommandItem>("newsession"_J));
-		sessionSwitcherGroup->AddItem(std::make_shared<CommandItem>("switchprivatefreeroam"_J));
-		sessionSwitcherGroup->AddItem(std::make_shared<CommandItem>("switchpublicfreeroam"_J));
-		sessionSwitcherGroup->AddItem(std::make_shared<CommandItem>("switchsingleplayer"_J));
-		sessionSwitcherGroup->AddItem(std::make_shared<CommandItem>("switchmissioncreator"_J));
-		sessionSwitcherGroup->AddItem(std::make_shared<CommandItem>("switchprivatefreeroamraw"_J));
 
 		teleportGroup->AddItem(std::make_shared<CommandItem>("bringall"_J, "Bring All"));
 		teleportGroup->AddItem(std::make_shared<CommandItem>("tpalltowaypoint"_J));
