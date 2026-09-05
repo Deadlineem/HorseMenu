@@ -4,6 +4,7 @@
 #include "game/pointers/Pointers.hpp"
 #include "game/backend/ScriptMgr.hpp"
 #include "game/rdr/Natives.hpp"
+#include "core/frontend/Notifications.hpp"
 
 #include <network/rlScSession.hpp>
 
@@ -30,6 +31,26 @@ namespace YimMenu::Features
 							NETWORK::_NETWORK_SESSION_TRANSITION_TO_SESSION(&id);
 
 						ScriptMgr::Yield();
+					}
+
+					ScriptMgr::Yield(3000ms);
+
+					bool isSessionActive = NETWORK::NETWORK_IS_SESSION_ACTIVE();
+					bool isSessionPrivate = NETWORK::NETWORK_SESSION_IS_PRIVATE();
+
+					if (isSessionActive && isSessionPrivate)
+					{
+						NETWORK::NETWORK_SESSION_REMOVE_SESSION_FLAGS(4 | 8 | 16 | 32 | 64 | 128 | 256 | 512 | 1024 | 2048);
+						NETWORK::_NETWORK_SESSION_ADD_SESSION_FLAGS(1 | 2);
+						Notifications::Show("Session", "Session flags set to SF_INSTANCE | SF_MATCH!", NotificationType::Info);
+
+						int sessionFlags = NETWORK::NETWORK_SESSION_GET_SESSION_FLAGS();
+						Notifications::Show("Session", "Session is now joinable by anyone! Current Flags: " + std::to_string(sessionFlags), NotificationType::Success);
+					}
+					else
+					{
+						int sessionFlags = NETWORK::NETWORK_SESSION_GET_SESSION_FLAGS();
+						Notifications::Show("Session", "Failed to make session public.  Current Flags: " + std::to_string(sessionFlags), NotificationType::Error);
 					}
 				}
 			}

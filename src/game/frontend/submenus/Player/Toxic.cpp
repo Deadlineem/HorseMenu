@@ -12,6 +12,10 @@ namespace YimMenu::Submenus
 		general->AddItem(std::make_shared<BoolCommandItem>("explodeactive"_J));
 		general->AddItem(std::make_shared<PlayerCommandItem>("explodeloop"_J));
 		general->AddItem(std::make_shared<PlayerCommandItem>("lightning"_J));
+		general->AddItem(std::make_shared<BoolCommandItem>("lightningactive"_J));
+		general->AddItem(std::make_shared<PlayerCommandItem>("lightningloop"_J));
+		general->AddItem(std::make_shared<BoolCommandItem>("rainbowactive"_J));
+		general->AddItem(std::make_shared<PlayerCommandItem>("rainbowloop"_J));
 		general->AddItem(std::make_shared<PlayerCommandItem>("defensive"_J));
 		general->AddItem(std::make_shared<PlayerCommandItem>("offensive"_J));
 		general->AddItem(std::make_shared<PlayerCommandItem>("remotebolas"_J));
